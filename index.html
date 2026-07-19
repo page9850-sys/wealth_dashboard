@@ -34,18 +34,21 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js" onerror="showFatal('Babel Standalone 로드 실패')"></script>
 <style>
   body { margin: 0; }
-  ::-webkit-scrollbar { display: none; display: none !important; }
+  ::-webkit-scrollbar { display: none !important; }
 </style>
 </head>
 <body>
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useMemo } = React;
+const { useState, useMemo, useEffect } = React;
 const {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } = Recharts;
+
+// ────────────────── 고정된 구글 API 주소 ──────────────────
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbwHr4IbNxoGSbY8mXFwOfW2k_W_vN7vY7H7pU6D6w/exec"; 
 
 const DEMO = {
   stockHoldings: [
@@ -200,8 +203,6 @@ function SegControl({ value, onChange, options }) {
 
 function WealthDashboard() {
   const [tab, setTab] = useState('stocks');
-  const [showSettings, setShowSettings] = useState(false);
-  const [endpointUrl, setEndpointUrl] = useState('');
   const [data, setData] = useState(DEMO);
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -209,15 +210,19 @@ function WealthDashboard() {
   const [mc, setMc] = useState(null);
   const [mcRunning, setMcRunning] = useState(false);
 
-  function connect() {
-    if (!endpointUrl) return;
+  // 앱 첫 로딩 시 자동으로 API 연동 호출
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  function fetchData() {
     setLoading(true);
     setError('');
 
     const callbackName = 'wealthDashboardCb_' + Date.now();
     const timeoutId = setTimeout(() => {
       cleanup();
-      setError('연결 시간 초과. URL과 배포 상태를 확인해주세요.');
+      setError('연결 시간 초과. 시트 배포 상태를 확인해주세요.');
       setLoading(false);
     }, 10000);
 
@@ -231,16 +236,15 @@ function WealthDashboard() {
       cleanup();
       setData(json);
       setConnected(true);
-      setShowSettings(false);
       setLoading(false);
     };
 
-    const sep = endpointUrl.includes('?') ? '&' : '?';
+    const sep = DEFAULT_API_URL.includes('?') ? '&' : '?';
     const script = document.createElement('script');
-    script.src = endpointUrl + sep + 'callback=' + callbackName;
+    script.src = DEFAULT_API_URL + sep + 'callback=' + callbackName;
     script.onerror = () => {
       cleanup();
-      setError('연결 실패. 배포 URL과 액세스 권한(링크가 있는 모든 사용자)을 확인해주세요.');
+      setError('구글 시트 데이터를 불러오지 못했습니다. 데모 모드로 표시합니다.');
       setLoading(false);
     };
     document.body.appendChild(script);
@@ -251,7 +255,6 @@ function WealthDashboard() {
     return data.investPlan.categories.filter(c => c.name !== '총합' && c.name !== '합계');
   }, [data.investPlan]);
 
-  // 구글 시트에서 totalAmount를 오염시켜 보내더라도, 순수 자산군의 현재 금액 총합으로 프론트에서 재연산
   const pureTotalAmount = useMemo(() => {
     if (!filteredCategories.length) return data.investPlan?.totalAmount || 0;
     const sum = filteredCategories.reduce((acc, c) => acc + (Number(c.currentAmount) || 0), 0);
@@ -299,7 +302,6 @@ function WealthDashboard() {
   function handleRunMonteCarlo() {
     setMcRunning(true);
     setTimeout(() => {
-      // 오염된 totalAmount 대신 순수하게 재연산된 pureTotalAmount를 투입합니다.
       const result = runMonteCarlo(filteredCategories, pureTotalAmount, 1500);
       setMc(result);
       setMcRunning(false);
@@ -313,36 +315,24 @@ function WealthDashboard() {
     <div className="min-h-screen w-full" style={{ backgroundColor: INK, fontFamily: 'Georgia, "Noto Serif KR", serif' }}>
       <div className="max-w-md mx-auto px-4 pt-6 pb-10">
 
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <div className="text-xs tracking-widest uppercase" style={{ color: GOLD }}>Wealth Ledger</div>
             <h1 className="text-2xl font-normal mt-0.5" style={{ color: PAPER }}>주식 자산 현황</h1>
           </div>
-          <button onClick={() => setShowSettings(v => !v)} className="p-2 rounded-full text-lg" style={{ backgroundColor: PANEL }}>
-            ⚙️
+          <button 
+            onClick={fetchData} 
+            disabled={loading}
+            className="px-3 py-1.5 rounded-full text-xs font-medium transition-all" 
+            style={{ backgroundColor: PANEL, color: loading ? MUTED : PAPER }}
+          >
+            {loading ? '⏳ 갱신 중...' : '🔄 실시간 동기화'}
           </button>
         </div>
 
-        {showSettings && (
-          <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: PANEL }}>
-            <div className="text-xs mb-2" style={{ color: MUTED, fontFamily: 'ui-monospace, monospace' }}>Apps Script 웹앱 URL</div>
-            <input
-              value={endpointUrl}
-              onChange={e => setEndpointUrl(e.target.value)}
-              placeholder="https://script.google.com/macros/s/.../exec"
-              className="w-full px-3 py-2 rounded-lg text-sm mb-2 outline-none"
-              style={{ backgroundColor: INK, color: PAPER, border: '1px solid #3A4055' }}
-            />
-            <button
-              onClick={connect}
-              disabled={loading}
-              className="w-full py-2 rounded-lg text-sm font-medium"
-              style={{ backgroundColor: GOLD, color: INK }}
-            >
-              {loading ? '연결 중...' : connected ? '✓ 연결됨 · 새로고침' : '연결하기'}
-            </button>
-            {error && <div className="text-xs mt-2" style={{ color: RUST }}>{error}</div>}
-            {!connected && <div className="text-xs mt-2" style={{ color: MUTED }}>미연결 상태 — 데모 데이터로 표시 중</div>}
+        {error && (
+          <div className="mb-4 p-3 rounded-xl text-xs text-center font-sans" style={{ backgroundColor: '#3A1F24', color: '#FFA4A4' }}>
+            ⚠️ {error}
           </div>
         )}
 
@@ -356,7 +346,6 @@ function WealthDashboard() {
               { key: 'retirement', label: '은퇴', icon: '🐷', enabled: false },
             ]}
           />
-          {tab !== 'stocks' && <div className="text-xs text-center mt-2" style={{ color: MUTED }}>다음 단계에서 준비 예정</div>}
         </div>
 
         {tab === 'stocks' && (
@@ -417,7 +406,6 @@ function WealthDashboard() {
                   ))}
                 </LineChart>
               </ResponsiveContainer>
-              <div className="text-xs mt-2" style={{ color: MUTED }}>실적(2026 현재비중)은 위 "현재 vs 목표" 차트의 초록 막대를 참고하세요.</div>
             </div>
 
             <div className="rounded-2xl p-4" style={{ backgroundColor: PAPER }}>
@@ -466,9 +454,6 @@ function WealthDashboard() {
                       <div style={{ color: MUTED }}>상위 5% (낙관)</div>
                       <div className="tabular-nums font-medium" style={{ fontFamily: 'ui-monospace, monospace', color: SAGE }}>{fmtKRW(mc.p95)}원</div>
                     </div>
-                  </div>
-                  <div className="text-xs mt-3" style={{ color: MUTED }}>
-                    가정: Nasdaq 11%/22%, S&P500 8.5%/16%, Dividend 7%/13%, Bond 4%/6%, CASH 3.2%/1% (기대수익률/변동성). 필요시 조정 가능.
                   </div>
                 </>
               )}
