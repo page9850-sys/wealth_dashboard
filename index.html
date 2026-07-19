@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>주식 자산 현황 · Wealth Ledger</title>
 <script>
-  // 아래 CDN 스크립트 중 하나라도 로드/실행 실패하면 흰 화면 대신 에러를 화면에 표시한다.
   function showFatal(msg) {
     var el = document.createElement('div');
     el.style.cssText = 'color:#F3EFE4;background:#1B1F2A;padding:20px;font-family:monospace;font-size:13px;white-space:pre-wrap;min-height:100vh;box-sizing:border-box;';
@@ -41,14 +40,15 @@
 <body>
 <div id="root"></div>
 
-<script type="text/babel" data-presets="react">
+<!-- 크로스오리진 이슈 및 실행 순서 보장을 위해 아래와 같이 설정합니다 -->
+<script type="text/babel" data-presets="react" data-type="module">
 const { useState, useMemo } = React;
 const {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } = Recharts;
 
-// ────────────────── 데모 데이터 (연동 전 미리보기용) ──────────────────
+// ────────────────── 데모 데이터 (CASH 유지) ──────────────────
 const DEMO = {
   stockHoldings: [
     { person: '용이', asset: 'S&P500', value: 92542991.93 },
@@ -99,7 +99,7 @@ const DEMO = {
       { name: 'Nasdaq', currentAmount: 204669347.7, currentRatio: 0.3089, stage1Target: 0.20, stage2Target: 0.15, stage3Target: 0.05 },
       { name: 'S&P500', currentAmount: 271449362.5, currentRatio: 0.4097, stage1Target: 0.65, stage2Target: 0.45, stage3Target: 0.35 },
       { name: 'Dividend', currentAmount: 13778427.3, currentRatio: 0.0208, stage1Target: 0.05, stage2Target: 0.25, stage3Target: 0.45 },
-      { name: 'CASH', currentAmount: 166780713, currentRatio: 0.2517, stage1Target: 0.09, stage2Target: 0.15, stage3Target: 0.15 },
+      { name: 'CASH', currentAmount: 166780713, currentRatio: 0.2517, stage1Target: 0.09, stage2Target: 0.15, stage3Target: 0.15 }, // MMF/현금 -> CASH 변경
       { name: 'Bond', currentAmount: 5905500, currentRatio: 0.0089, stage1Target: 0.01, stage2Target: 0.00, stage3Target: 0.00 },
     ],
     totalAmount: 662583350.5,
@@ -111,7 +111,7 @@ const ASSUMPTIONS = {
   'S&P500':    { ret: 0.085, vol: 0.16 },
   'Dividend':  { ret: 0.07,  vol: 0.13 },
   'Bond':      { ret: 0.04,  vol: 0.06 },
-  'CASH':  { ret: 0.032, vol: 0.01 },
+  'CASH':      { ret: 0.032, vol: 0.01 }, // MMF/현금 -> CASH 변경
 };
 
 const INK = '#1B1F2A';
@@ -121,7 +121,7 @@ const SAGE = '#6B9080';
 const RUST = '#A8553F';
 const MUTED = '#8A8677';
 const PANEL = '#242938';
-const PIE_COLORS = { 'S&P500': GOLD, 'Nasdaq': RUST, 'Dividend': SAGE, 'Bond': '#6E86A8', 'CASH': MUTED, 'MMF/현금': MUTED };
+const PIE_COLORS = { 'S&P500': GOLD, 'Nasdaq': RUST, 'Dividend': SAGE, 'Bond': '#6E86A8', 'CASH': MUTED };
 
 function fmtKRW(n) {
   if (Math.abs(n) >= 100000000) return (n / 100000000).toFixed(2) + '억';
@@ -214,8 +214,6 @@ function WealthDashboard() {
     setLoading(true);
     setError('');
 
-    // GitHub Pages 등 일반 웹페이지에서는 샌드박스 제약이 없으므로
-    // Apps Script의 CORS 미지원 문제를 JSONP(<script> 태그)로 우회한다.
     const callbackName = 'wealthDashboardCb_' + Date.now();
     const timeoutId = setTimeout(() => {
       cleanup();
@@ -465,7 +463,10 @@ function WealthDashboard() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<WealthDashboard />);
+// 스크립트 실행 타이밍 안전성 확보를 위해 로드가 끝난 후 렌더링하도록 변경
+window.addEventListener('DOMContentLoaded', () => {
+  ReactDOM.createRoot(document.getElementById('root')).render(<WealthDashboard />);
+});
 </script>
 </body>
 </html>
