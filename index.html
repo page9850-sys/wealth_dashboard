@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>주식 자산 현황 · Wealth Ledger</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/prop-types/prop-types.js"></script>
+<script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  body { margin: 0; }
+  ::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo } = React;
+const {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+} = Recharts;
+
+// ────────────────── 데모 데이터 (연동 전 미리보기용) ──────────────────
+const DEMO = {
+  stockHoldings: [
+    { person: '용이', asset: 'S&P500', value: 92542991.93 },
+    { person: '용이', asset: 'Dividend', value: 4888594.015 },
+    { person: '용이', asset: 'Dividend', value: 1469033.289 },
+    { person: '용이', asset: 'Nasdaq', value: 1278027.715 },
+    { person: '용이', asset: 'S&P500', value: 27769245 },
+    { person: '용이', asset: 'S&P500', value: 12258400 },
+    { person: '용이', asset: 'Nasdaq', value: 20956950 },
+    { person: '용이', asset: 'Nasdaq', value: 18664020 },
+    { person: '용이', asset: 'CASH', value: 1664020 },
+    { person: '용이', asset: 'S&P500', value: 4304655 },
+    { person: '용이', asset: 'S&P500', value: 6407800 },
+    { person: '용이', asset: 'Nasdaq', value: 6819325 },
+    { person: '용이', asset: 'Nasdaq', value: 531360 },
+    { person: '용이', asset: 'Bond', value: 4881000 },
+    { person: '용이', asset: 'Bond', value: 1024500 },
+    { person: '용이', asset: 'CASH', value: 1838840 },
+    { person: '용이', asset: 'S&P500', value: 79059350 },
+    { person: '용이', asset: 'Nasdaq', value: 84160450 },
+    { person: '용이', asset: 'CASH', value: 7000000 },
+    { person: '용이', asset: 'CASH', value: 46794480 },
+    { person: '용이', asset: 'CASH', value: 4058124 },
+    { person: '용이', asset: 'CASH', value: 5003770 },
+    { person: '용이', asset: 'Nasdaq', value: 4267000 },
+    { person: '용이', asset: 'CASH', value: 19079 },
+    { person: '갱이', asset: 'S&P500', value: 518915.5875 },
+    { person: '갱이', asset: 'S&P500', value: 31370525 },
+    { person: '갱이', asset: 'S&P500', value: 17217480 },
+    { person: '갱이', asset: 'Nasdaq', value: 33098675 },
+    { person: '갱이', asset: 'Nasdaq', value: 12619800 },
+    { person: '갱이', asset: 'Nasdaq', value: 4032315 },
+    { person: '갱이', asset: 'CASH', value: 708 },
+    { person: '갱이', asset: 'Dividend', value: 7420800 },
+    { person: '갱이', asset: 'Nasdaq', value: 14081100 },
+    { person: '갱이', asset: 'CASH', value: 392980 },
+    { person: '갱이', asset: 'Nasdaq', value: 4160325 },
+    { person: '갱이', asset: 'CASH', value: 8712 },
+    { person: '용이', asset: 'CASH', value: 100000000 },
+  ],
+  investPlan: {
+    stages: [
+      { key: 'stage1', period: '2026~29', label: '1단계' },
+      { key: 'stage2', period: '2030~32', label: '2단계' },
+      { key: 'stage3', period: '2033~35', label: '3단계' },
+    ],
+    categories: [
+      { name: 'Nasdaq', currentAmount: 204669347.7, currentRatio: 0.3089, stage1Target: 0.20, stage2Target: 0.15, stage3Target: 0.05 },
+      { name: 'S&P500', currentAmount: 271449362.5, currentRatio: 0.4097, stage1Target: 0.65, stage2Target: 0.45, stage3Target: 0.35 },
+      { name: 'Dividend', currentAmount: 13778427.3, currentRatio: 0.0208, stage1Target: 0.05, stage2Target: 0.25, stage3Target: 0.45 },
+      { name: 'MMF/현금', currentAmount: 166780713, currentRatio: 0.2517, stage1Target: 0.09, stage2Target: 0.15, stage3Target: 0.15 },
+      { name: 'Bond', currentAmount: 5905500, currentRatio: 0.0089, stage1Target: 0.01, stage2Target: 0.00, stage3Target: 0.00 },
+    ],
+    totalAmount: 662583350.5,
+  },
+};
+
+const ASSUMPTIONS = {
+  'Nasdaq':    { ret: 0.11,  vol: 0.22 },
+  'S&P500':    { ret: 0.085, vol: 0.16 },
+  'Dividend':  { ret: 0.07,  vol: 0.13 },
+  'Bond':      { ret: 0.04,  vol: 0.06 },
+  'MMF/현금':  { ret: 0.032, vol: 0.01 },
+};
+
+const INK = '#1B1F2A';
+const PAPER = '#F3EFE4';
+const GOLD = '#B8863B';
+const SAGE = '#6B9080';
+const RUST = '#A8553F';
+const MUTED = '#8A8677';
+const PANEL = '#242938';
+const PIE_COLORS = { 'S&P500': GOLD, 'Nasdaq': RUST, 'Dividend': SAGE, 'Bond': '#6E86A8', 'CASH': MUTED, 'MMF/현금': MUTED };
+
+function fmtKRW(n) {
+  if (Math.abs(n) >= 100000000) return (n / 100000000).toFixed(2) + '억';
+  if (Math.abs(n) >= 10000) return Math.round(n / 10000).toLocaleString() + '만';
+  return Math.round(n).toLocaleString();
+}
+
+function gaussian() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  while (v === 0) v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+function stageForYear(year) {
+  if (year <= 2029) return 'stage1Target';
+  if (year <= 2032) return 'stage2Target';
+  return 'stage3Target';
+}
+
+function runMonteCarlo(categories, totalAmount, numSims = 1500) {
+  const finals = [];
+  for (let s = 0; s < numSims; s++) {
+    let v = totalAmount;
+    for (let year = 2026; year <= 2035; year++) {
+      const stageKey = stageForYear(year);
+      let nextV = 0;
+      categories.forEach(cat => {
+        const weight = cat[stageKey] || 0;
+        const alloc = v * weight;
+        const params = ASSUMPTIONS[cat.name] || { ret: 0.05, vol: 0.1 };
+        const yearReturn = params.ret + params.vol * gaussian();
+        nextV += alloc * (1 + Math.max(yearReturn, -0.9));
+      });
+      v = nextV;
+    }
+    finals.push(v);
+  }
+  finals.sort((a, b) => a - b);
+  const p = (q) => finals[Math.floor(q * (finals.length - 1))];
+  const min = finals[0], max = finals[finals.length - 1];
+  const bins = 14;
+  const step = (max - min) / bins || 1;
+  const hist = Array.from({ length: bins }, (_, i) => ({ range: fmtKRW(min + i * step), count: 0 }));
+  finals.forEach(v => {
+    let idx = Math.min(bins - 1, Math.floor((v - min) / step));
+    hist[idx].count += 1;
+  });
+  return {
+    p5: p(0.05), p25: p(0.25), p50: p(0.5), p75: p(0.75), p95: p(0.95),
+    mean: finals.reduce((s, x) => s + x, 0) / finals.length,
+    hist,
+  };
+}
+
+function SegControl({ value, onChange, options }) {
+  return (
+    <div className="flex rounded-full p-1 gap-1" style={{ backgroundColor: '#E5DFCE' }}>
+      {options.map(opt => (
+        <button
+          key={opt.key}
+          onClick={() => opt.enabled !== false && onChange(opt.key)}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-sm font-medium transition-colors"
+          style={{
+            backgroundColor: value === opt.key ? INK : 'transparent',
+            color: value === opt.key ? PAPER : opt.enabled === false ? '#B3AE9C' : '#5B5744',
+          }}
+        >
+          <span>{opt.icon}</span>
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function WealthDashboard() {
+  const [tab, setTab] = useState('stocks');
+  const [showSettings, setShowSettings] = useState(false);
+  const [endpointUrl, setEndpointUrl] = useState('');
+  const [data, setData] = useState(DEMO);
+  const [loading, setLoading] = useState(false);
+  const [connected, setConnected] = useState(false);
+  const [error, setError] = useState('');
+  const [mc, setMc] = useState(null);
+  const [mcRunning, setMcRunning] = useState(false);
+
+  function connect() {
+    if (!endpointUrl) return;
+    setLoading(true);
+    setError('');
+
+    // GitHub Pages 등 일반 웹페이지에서는 샌드박스 제약이 없으므로
+    // Apps Script의 CORS 미지원 문제를 JSONP(<script> 태그)로 우회한다.
+    const callbackName = 'wealthDashboardCb_' + Date.now();
+    const timeoutId = setTimeout(() => {
+      cleanup();
+      setError('연결 시간 초과. URL과 배포 상태를 확인해주세요.');
+      setLoading(false);
+    }, 10000);
+
+    function cleanup() {
+      clearTimeout(timeoutId);
+      delete window[callbackName];
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    window[callbackName] = (json) => {
+      cleanup();
+      setData(json);
+      setConnected(true);
+      setShowSettings(false);
+      setLoading(false);
+    };
+
+    const sep = endpointUrl.includes('?') ? '&' : '?';
+    const script = document.createElement('script');
+    script.src = endpointUrl + sep + 'callback=' + callbackName;
+    script.onerror = () => {
+      cleanup();
+      setError('연결 실패. 배포 URL과 액세스 권한(링크가 있는 모든 사용자)을 확인해주세요.');
+      setLoading(false);
+    };
+    document.body.appendChild(script);
+  }
+
+  const byAsset = useMemo(() => {
+    const map = {};
+    data.stockHoldings.forEach(h => { map[h.asset] = (map[h.asset] || 0) + h.value; });
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
+  }, [data.stockHoldings]);
+
+  const totalValue = useMemo(() => byAsset.reduce((s, x) => s + x.value, 0), [byAsset]);
+
+  const byAssetWithPct = useMemo(() => {
+    return byAsset
+      .map(a => ({ ...a, pct: totalValue ? (a.value / totalValue) * 100 : 0 }))
+      .sort((a, b) => b.value - a.value);
+  }, [byAsset, totalValue]);
+
+  const currentVsTarget2026 = useMemo(() => {
+    return data.investPlan.categories.map(c => ({
+      name: c.name,
+      현재: Math.round(c.currentRatio * 1000) / 10,
+      목표: Math.round(c.stage1Target * 1000) / 10,
+    }));
+  }, [data.investPlan.categories]);
+
+  const glideData = useMemo(() => {
+    const stages = data.investPlan.stages;
+    return stages.map(st => {
+      const row = { period: st.period };
+      data.investPlan.categories.forEach(c => {
+        const key = st.key + 'Target';
+        row[c.name] = Math.round((c[key] || 0) * 1000) / 10;
+      });
+      return row;
+    });
+  }, [data.investPlan]);
+
+  function handleRunMonteCarlo() {
+    setMcRunning(true);
+    setTimeout(() => {
+      const result = runMonteCarlo(data.investPlan.categories, data.investPlan.totalAmount, 1500);
+      setMc(result);
+      setMcRunning(false);
+    }, 50);
+  }
+
+  const catColors = ['#B8863B', '#A8553F', '#6B9080', '#6E86A8', '#8A8677'];
+  const tooltipBase = { contentStyle: { backgroundColor: INK, border: 'none', borderRadius: 8, color: PAPER }, itemStyle: { color: PAPER }, labelStyle: { color: PAPER } };
+
+  return (
+    <div className="min-h-screen w-full" style={{ backgroundColor: INK, fontFamily: 'Georgia, "Noto Serif KR", serif' }}>
+      <div className="max-w-md mx-auto px-4 pt-6 pb-10">
+
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <div className="text-xs tracking-widest uppercase" style={{ color: GOLD }}>Wealth Ledger</div>
+            <h1 className="text-2xl font-normal mt-0.5" style={{ color: PAPER }}>주식 자산 현황</h1>
+          </div>
+          <button onClick={() => setShowSettings(v => !v)} className="p-2 rounded-full text-lg" style={{ backgroundColor: PANEL }}>
+            ⚙️
+          </button>
+        </div>
+
+        {showSettings && (
+          <div className="mb-4 p-3 rounded-xl" style={{ backgroundColor: PANEL }}>
+            <div className="text-xs mb-2" style={{ color: MUTED, fontFamily: 'ui-monospace, monospace' }}>Apps Script 웹앱 URL</div>
+            <input
+              value={endpointUrl}
+              onChange={e => setEndpointUrl(e.target.value)}
+              placeholder="https://script.google.com/macros/s/.../exec"
+              className="w-full px-3 py-2 rounded-lg text-sm mb-2 outline-none"
+              style={{ backgroundColor: INK, color: PAPER, border: '1px solid #3A4055' }}
+            />
+            <button
+              onClick={connect}
+              disabled={loading}
+              className="w-full py-2 rounded-lg text-sm font-medium"
+              style={{ backgroundColor: GOLD, color: INK }}
+            >
+              {loading ? '연결 중...' : connected ? '✓ 연결됨 · 새로고침' : '연결하기'}
+            </button>
+            {error && <div className="text-xs mt-2" style={{ color: RUST }}>{error}</div>}
+            {!connected && <div className="text-xs mt-2" style={{ color: MUTED }}>미연결 상태 — 데모 데이터로 표시 중</div>}
+          </div>
+        )}
+
+        <div className="mb-5">
+          <SegControl
+            value={tab}
+            onChange={setTab}
+            options={[
+              { key: 'stocks', label: '주식', icon: '📈', enabled: true },
+              { key: 'realestate', label: '부동산', icon: '🏢', enabled: false },
+              { key: 'retirement', label: '은퇴', icon: '🐷', enabled: false },
+            ]}
+          />
+          {tab !== 'stocks' && <div className="text-xs text-center mt-2" style={{ color: MUTED }}>다음 단계에서 준비 예정</div>}
+        </div>
+
+        {tab === 'stocks' && (
+          <div className="space-y-4">
+
+            <div className="rounded-2xl p-4" style={{ backgroundColor: PAPER }}>
+              <div className="text-xs tracking-wide" style={{ color: MUTED }}>총 평가액</div>
+              <div className="text-3xl mt-1 tabular-nums" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(totalValue)}원</div>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={byAsset} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                    {byAsset.map((entry, i) => (
+                      <Cell key={entry.name} fill={PIE_COLORS[entry.name] || catColors[i % catColors.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip {...tooltipBase} formatter={(v, n) => [fmtKRW(v) + '원', n]} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2 mt-2">
+                {byAssetWithPct.map((a, i) => (
+                  <div key={a.name} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: PIE_COLORS[a.name] || catColors[i % catColors.length] }}></span>
+                      <span style={{ color: '#5B5744' }} className="truncate">{a.name}</span>
+                    </div>
+                    <span className="tabular-nums font-medium flex-shrink-0" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{a.pct.toFixed(1)}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl p-4" style={{ backgroundColor: PAPER }}>
+              <div className="text-sm font-medium mb-3" style={{ color: INK }}>2026년 현재 vs 목표(1단계)</div>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={currentVsTarget2026} barGap={4}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#D8D2C0" vertical={false} />
+                  <XAxis dataKey="name" tick={{ fill: '#5B5744', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#5B5744', fontSize: 11 }} axisLine={false} tickLine={false} unit="%" />
+                  <Tooltip {...tooltipBase} />
+                  <Bar dataKey="현재" fill={SAGE} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="목표" fill={GOLD} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="rounded-2xl p-4" style={{ backgroundColor: PAPER }}>
+              <div className="text-sm font-medium mb-1" style={{ color: INK }}>글라이드슬롭 (3단계 계획)</div>
+              <div className="text-xs mb-3" style={{ color: MUTED }}>2026~29 → 2030~32 → 2033~35, 목표 비중 변화</div>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={glideData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#D8D2C0" vertical={false} />
+                  <XAxis dataKey="period" tick={{ fill: '#5B5744', fontSize: 11 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#5B5744', fontSize: 11 }} axisLine={false} tickLine={false} unit="%" />
+                  <Tooltip {...tooltipBase} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                  {data.investPlan.categories.map((c, i) => (
+                    <Line key={c.name} type="linear" dataKey={c.name} stroke={catColors[i % catColors.length]} strokeWidth={2} dot={{ r: 3 }} />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+              <div className="text-xs mt-2" style={{ color: MUTED }}>실적(2026 현재비중)은 위 "현재 vs 목표" 차트의 초록 막대를 참고하세요.</div>
+            </div>
+
+            <div className="rounded-2xl p-4" style={{ backgroundColor: PAPER }}>
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-sm font-medium" style={{ color: INK }}>몬테카를로 시뮬레이션</div>
+                <button
+                  onClick={handleRunMonteCarlo}
+                  disabled={mcRunning}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+                  style={{ backgroundColor: INK, color: PAPER }}
+                >
+                  🎲 {mcRunning ? '계산 중...' : mc ? '다시 실행' : '실행'}
+                </button>
+              </div>
+              <div className="text-xs mb-3" style={{ color: MUTED }}>
+                2026→2035, 총 {fmtKRW(data.investPlan.totalAmount)}원 기준 · 단계별 목표배분 리밸런싱 가정 · 1,500회 시뮬레이션
+              </div>
+
+              {!mc && <div className="text-xs py-6 text-center" style={{ color: MUTED }}>"실행"을 눌러 2035년 예상 자산 분포를 계산하세요</div>}
+
+              {mc && (
+                <>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <BarChart data={mc.hist}>
+                      <XAxis dataKey="range" tick={{ fill: '#5B5744', fontSize: 9 }} axisLine={false} tickLine={false} interval={2} />
+                      <YAxis hide />
+                      <Tooltip {...tooltipBase} formatter={(v) => [v + '회', '빈도']} />
+                      <Bar dataKey="count" fill={GOLD} radius={[3, 3, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+
+                  <div className="grid grid-cols-2 gap-2 mt-3 text-xs" style={{ color: '#5B5744' }}>
+                    <div className="rounded-lg p-2" style={{ backgroundColor: '#E5DFCE' }}>
+                      <div style={{ color: MUTED }}>중간값(50%)</div>
+                      <div className="tabular-nums font-medium" style={{ fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(mc.p50)}원</div>
+                    </div>
+                    <div className="rounded-lg p-2" style={{ backgroundColor: '#E5DFCE' }}>
+                      <div style={{ color: MUTED }}>평균</div>
+                      <div className="tabular-nums font-medium" style={{ fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(mc.mean)}원</div>
+                    </div>
+                    <div className="rounded-lg p-2" style={{ backgroundColor: '#E5DFCE' }}>
+                      <div style={{ color: MUTED }}>하위 5% (비관)</div>
+                      <div className="tabular-nums font-medium" style={{ fontFamily: 'ui-monospace, monospace', color: RUST }}>{fmtKRW(mc.p5)}원</div>
+                    </div>
+                    <div className="rounded-lg p-2" style={{ backgroundColor: '#E5DFCE' }}>
+                      <div style={{ color: MUTED }}>상위 5% (낙관)</div>
+                      <div className="tabular-nums font-medium" style={{ fontFamily: 'ui-monospace, monospace', color: SAGE }}>{fmtKRW(mc.p95)}원</div>
+                    </div>
+                  </div>
+                  <div className="text-xs mt-3" style={{ color: MUTED }}>
+                    가정: Nasdaq 11%/22%, S&P500 8.5%/16%, Dividend 7%/13%, Bond 4%/6%, MMF/현금 3.2%/1% (기대수익률/변동성). 필요시 조정 가능.
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<WealthDashboard />);
+</script>
+</body>
+</html>
