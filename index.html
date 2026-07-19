@@ -99,7 +99,7 @@ const DEMO = {
       { name: 'Nasdaq', currentAmount: 204669347.7, currentRatio: 0.3089, stage1Target: 0.20, stage2Target: 0.15, stage3Target: 0.05 },
       { name: 'S&P500', currentAmount: 271449362.5, currentRatio: 0.4097, stage1Target: 0.65, stage2Target: 0.45, stage3Target: 0.35 },
       { name: 'Dividend', currentAmount: 13778427.3, currentRatio: 0.0208, stage1Target: 0.05, stage2Target: 0.25, stage3Target: 0.45 },
-      { name: 'MMF/현금', currentAmount: 166780713, currentRatio: 0.2517, stage1Target: 0.09, stage2Target: 0.15, stage3Target: 0.15 },
+      { name: 'CASH', currentAmount: 166780713, currentRatio: 0.2517, stage1Target: 0.09, stage2Target: 0.15, stage3Target: 0.15 },
       { name: 'Bond', currentAmount: 5905500, currentRatio: 0.0089, stage1Target: 0.01, stage2Target: 0.00, stage3Target: 0.00 },
     ],
     totalAmount: 662583350.5,
@@ -111,7 +111,7 @@ const ASSUMPTIONS = {
   'S&P500':    { ret: 0.085, vol: 0.16 },
   'Dividend':  { ret: 0.07,  vol: 0.13 },
   'Bond':      { ret: 0.04,  vol: 0.06 },
-  'MMF/현금':  { ret: 0.032, vol: 0.01 },
+  'CASH':  { ret: 0.032, vol: 0.01 },
 };
 
 const INK = '#1B1F2A';
@@ -453,7 +453,7 @@ function WealthDashboard() {
                     </div>
                   </div>
                   <div className="text-xs mt-3" style={{ color: MUTED }}>
-                    가정: Nasdaq 11%/22%, S&P500 8.5%/16%, Dividend 7%/13%, Bond 4%/6%, MMF/현금 3.2%/1% (기대수익률/변동성). 필요시 조정 가능.
+                    가정: Nasdaq 11%/22%, S&P500 8.5%/16%, Dividend 7%/13%, Bond 4%/6%, CASH 3.2%/1% (기대수익률/변동성). 필요시 조정 가능.
                   </div>
                 </>
               )}
