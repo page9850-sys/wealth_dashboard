@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>금융 자산 현황 · Wealth Ledger</title>
 <script>
-  // 진짜로 CDN 라이브러리가 안 불러와졌을 때만 치명적 에러를 표시하도록 개선
   function showFatal(msg) {
     var el = document.createElement('div');
     el.style.cssText = 'color:#F3EFE4;background:#1B1F2A;padding:20px;font-family:monospace;font-size:13px;white-space:pre-wrap;min-height:100vh;box-sizing:border-box;';
@@ -21,7 +20,6 @@
     }
   }
 </script>
-<!-- 핵심 라이브러리 로드 -->
 <script src="https://cdn.tailwindcss.com" onerror="showFatal('Tailwind CDN 로드 실패')"></script>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" onerror="showFatal('React 로드 실패')"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" onerror="showFatal('ReactDOM 로드 실패')"></script>
@@ -44,7 +42,8 @@ const {
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } = Recharts;
 
-const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbwHr4IbNxoGSbY8mXFwOfW2k_W_vN7vY7H7pU6D6w/exec"; 
+// ─── 사용자가 새로 제공해 준 정확한 구글 웹앱 API 주소 반영 ───
+const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbwHr4IbNxoGSTAQNp83tAnfXki0_8JVu-JX31NxnNWqDNMSUFyV_U4Jz16y8ks6F6sIRg/exec"; 
 
 const DEMO = {
   stockHoldings: [
@@ -70,7 +69,7 @@ const DEMO = {
     { person: '용이', asset: 'CASH', value: 46794480 },
     { person: '용이', asset: 'CASH', value: 4058124 },
     { person: '용이', asset: 'CASH', value: 5003770 },
-    { person: '용이', asset: 'Nasdaq', value: 4267000 },
+    { person: 'Nasdaq', value: 4267000 },
     { person: '용이', asset: 'CASH', value: 19079 },
     { person: '갱이', asset: 'S&P500', value: 518915.5875 },
     { person: '갱이', asset: 'S&P500', value: 31370525 },
@@ -215,10 +214,9 @@ function WealthDashboard() {
 
     const callbackName = 'wealthDashboardCb_' + Date.now();
     
-    // 타임아웃 발생 시 안전하게 스크립트 노드 제거하고 데모 복구
     const timeoutId = setTimeout(() => {
       cleanup();
-      setError('구글 시트 응답 지연으로 안전 모드(데모 데이터)로 진행합니다.');
+      setError('구글 시트 응답 지연으로 안전 모드(데모 데이터)로 진입했습니다.');
       setLoading(false);
     }, 8000);
 
@@ -229,7 +227,6 @@ function WealthDashboard() {
       if (el && el.parentNode) el.parentNode.removeChild(el);
     }
 
-    // 성공 콜백 함수 정의
     window[callbackName] = (json) => {
       cleanup();
       if (json && json.stockHoldings && json.investPlan) {
