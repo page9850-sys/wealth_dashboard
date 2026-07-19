@@ -40,8 +40,8 @@
 <body>
 <div id="root"></div>
 
-<!-- 크로스오리진 이슈 및 실행 순서 보장을 위해 아래와 같이 설정합니다 -->
-<script type="text/babel" data-presets="react" data-type="module">
+<!-- Babel Standalone에서 오류가 없는 가장 표준적인 선언문으로 되돌립니다 -->
+<script type="text/babel">
 const { useState, useMemo } = React;
 const {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -99,7 +99,7 @@ const DEMO = {
       { name: 'Nasdaq', currentAmount: 204669347.7, currentRatio: 0.3089, stage1Target: 0.20, stage2Target: 0.15, stage3Target: 0.05 },
       { name: 'S&P500', currentAmount: 271449362.5, currentRatio: 0.4097, stage1Target: 0.65, stage2Target: 0.45, stage3Target: 0.35 },
       { name: 'Dividend', currentAmount: 13778427.3, currentRatio: 0.0208, stage1Target: 0.05, stage2Target: 0.25, stage3Target: 0.45 },
-      { name: 'CASH', currentAmount: 166780713, currentRatio: 0.2517, stage1Target: 0.09, stage2Target: 0.15, stage3Target: 0.15 }, // MMF/현금 -> CASH 변경
+      { name: 'CASH', currentAmount: 166780713, currentRatio: 0.2517, stage1Target: 0.09, stage2Target: 0.15, stage3Target: 0.15 },
       { name: 'Bond', currentAmount: 5905500, currentRatio: 0.0089, stage1Target: 0.01, stage2Target: 0.00, stage3Target: 0.00 },
     ],
     totalAmount: 662583350.5,
@@ -111,7 +111,7 @@ const ASSUMPTIONS = {
   'S&P500':    { ret: 0.085, vol: 0.16 },
   'Dividend':  { ret: 0.07,  vol: 0.13 },
   'Bond':      { ret: 0.04,  vol: 0.06 },
-  'CASH':      { ret: 0.032, vol: 0.01 }, // MMF/현금 -> CASH 변경
+  'CASH':      { ret: 0.032, vol: 0.01 },
 };
 
 const INK = '#1B1F2A';
@@ -463,10 +463,8 @@ function WealthDashboard() {
   );
 }
 
-// 스크립트 실행 타이밍 안전성 확보를 위해 로드가 끝난 후 렌더링하도록 변경
-window.addEventListener('DOMContentLoaded', () => {
-  ReactDOM.createRoot(document.getElementById('root')).render(<WealthDashboard />);
-});
+// React 18 렌더링 정상 실행
+ReactDOM.createRoot(document.getElementById('root')).render(<WealthDashboard />);
 </script>
 </body>
 </html>
