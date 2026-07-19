@@ -40,7 +40,6 @@
 <body>
 <div id="root"></div>
 
-<!-- Babel Standalone에서 오류가 없는 가장 표준적인 선언문으로 되돌립니다 -->
 <script type="text/babel">
 const { useState, useMemo } = React;
 const {
@@ -48,7 +47,7 @@ const {
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } = Recharts;
 
-// ────────────────── 데모 데이터 (CASH 유지) ──────────────────
+// ────────────────── 데모 데이터 ──────────────────
 const DEMO = {
   stockHoldings: [
     { person: '용이', asset: 'S&P500', value: 92542991.93 },
@@ -143,13 +142,16 @@ function stageForYear(year) {
 }
 
 function runMonteCarlo(categories, totalAmount, numSims = 1500) {
+  // '총합' 항목을 완벽히 제외하고 실제 자산군 비중만 추출
+  const validCategories = categories.filter(c => c.name !== '총합' && c.name !== '합계');
   const finals = [];
+  
   for (let s = 0; s < numSims; s++) {
     let v = totalAmount;
     for (let year = 2026; year <= 2035; year++) {
       const stageKey = stageForYear(year);
       let nextV = 0;
-      categories.forEach(cat => {
+      validCategories.forEach(cat => {
         const weight = cat[stageKey] || 0;
         const alloc = v * weight;
         const params = ASSUMPTIONS[cat.name] || { ret: 0.05, vol: 0.1 };
@@ -246,9 +248,19 @@ function WealthDashboard() {
     document.body.appendChild(script);
   }
 
+  // 구글 시트에서 가져온 데이터 중 '총합' 성격의 행을 제외하는 필터 로직
+  const filteredCategories = useMemo(() => {
+    if (!data.investPlan || !data.investPlan.categories) return [];
+    return data.investPlan.categories.filter(c => c.name !== '총합' && c.name !== '합계');
+  }, [data.investPlan]);
+
   const byAsset = useMemo(() => {
     const map = {};
-    data.stockHoldings.forEach(h => { map[h.asset] = (map[h.asset] || 0) + h.value; });
+    data.stockHoldings.forEach(h => { 
+      if (h.asset !== '총합' && h.asset !== '합계') {
+        map[h.asset] = (map[h.asset] || 0) + h.value; 
+      }
+    });
     return Object.entries(map).map(([name, value]) => ({ name, value }));
   }, [data.stockHoldings]);
 
@@ -261,29 +273,30 @@ function WealthDashboard() {
   }, [byAsset, totalValue]);
 
   const currentVsTarget2026 = useMemo(() => {
-    return data.investPlan.categories.map(c => ({
+    return filteredCategories.map(c => ({
       name: c.name,
       현재: Math.round(c.currentRatio * 1000) / 10,
       목표: Math.round(c.stage1Target * 1000) / 10,
     }));
-  }, [data.investPlan.categories]);
+  }, [filteredCategories]);
 
   const glideData = useMemo(() => {
     const stages = data.investPlan.stages;
     return stages.map(st => {
       const row = { period: st.period };
-      data.investPlan.categories.forEach(c => {
+      filteredCategories.forEach(c => {
         const key = st.key + 'Target';
         row[c.name] = Math.round((c[key] || 0) * 1000) / 10;
       });
       return row;
     });
-  }, [data.investPlan]);
+  }, [data.investPlan, filteredCategories]);
 
   function handleRunMonteCarlo() {
     setMcRunning(true);
     setTimeout(() => {
-      const result = runMonteCarlo(data.investPlan.categories, data.investPlan.totalAmount, 1500);
+      // 몬테카를로 내부에서도 filteredCategories를 활용하도록 연계
+      const result = runMonteCarlo(filteredCategories, data.investPlan.totalAmount, 1500);
       setMc(result);
       setMcRunning(false);
     }, 50);
@@ -395,8 +408,8 @@ function WealthDashboard() {
                   <YAxis tick={{ fill: '#5B5744', fontSize: 11 }} axisLine={false} tickLine={false} unit="%" />
                   <Tooltip {...tooltipBase} />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
-                  {data.investPlan.categories.map((c, i) => (
-                    <Line key={c.name} type="linear" dataKey={c.name} stroke={catColors[i % catColors.length]} strokeWidth={2} dot={{ r: 3 }} />
+                  {filteredCategories.map((c, i) => (
+                    <Line key={c.name} type="linear" dataKey={c.name} stroke={PIE_COLORS[c.name] || catColors[i % catColors.length]} strokeWidth={2} dot={{ r: 3 }} />
                   ))}
                 </LineChart>
               </ResponsiveContainer>
@@ -463,7 +476,6 @@ function WealthDashboard() {
   );
 }
 
-// React 18 렌더링 정상 실행
 ReactDOM.createRoot(document.getElementById('root')).render(<WealthDashboard />);
 </script>
 </body>
