@@ -34,7 +34,7 @@
 <script src="https://unpkg.com/@babel/standalone/babel.min.js" onerror="showFatal('Babel Standalone 로드 실패')"></script>
 <style>
   body { margin: 0; }
-  ::-webkit-scrollbar { display: none; }
+  ::-webkit-scrollbar { display: none; display: none !important; }
 </style>
 </head>
 <body>
@@ -47,7 +47,6 @@ const {
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } = Recharts;
 
-// ────────────────── 데모 데이터 ──────────────────
 const DEMO = {
   stockHoldings: [
     { person: '용이', asset: 'S&P500', value: 92542991.93 },
@@ -142,7 +141,6 @@ function stageForYear(year) {
 }
 
 function runMonteCarlo(categories, totalAmount, numSims = 1500) {
-  // '총합' 항목을 완벽히 제외하고 실제 자산군 비중만 추출
   const validCategories = categories.filter(c => c.name !== '총합' && c.name !== '합계');
   const finals = [];
   
@@ -248,11 +246,17 @@ function WealthDashboard() {
     document.body.appendChild(script);
   }
 
-  // 구글 시트에서 가져온 데이터 중 '총합' 성격의 행을 제외하는 필터 로직
   const filteredCategories = useMemo(() => {
     if (!data.investPlan || !data.investPlan.categories) return [];
     return data.investPlan.categories.filter(c => c.name !== '총합' && c.name !== '합계');
   }, [data.investPlan]);
+
+  // 구글 시트에서 totalAmount를 오염시켜 보내더라도, 순수 자산군의 현재 금액 총합으로 프론트에서 재연산
+  const pureTotalAmount = useMemo(() => {
+    if (!filteredCategories.length) return data.investPlan?.totalAmount || 0;
+    const sum = filteredCategories.reduce((acc, c) => acc + (Number(c.currentAmount) || 0), 0);
+    return sum > 0 ? sum : (data.investPlan?.totalAmount || 0);
+  }, [filteredCategories, data.investPlan]);
 
   const byAsset = useMemo(() => {
     const map = {};
@@ -295,8 +299,8 @@ function WealthDashboard() {
   function handleRunMonteCarlo() {
     setMcRunning(true);
     setTimeout(() => {
-      // 몬테카를로 내부에서도 filteredCategories를 활용하도록 연계
-      const result = runMonteCarlo(filteredCategories, data.investPlan.totalAmount, 1500);
+      // 오염된 totalAmount 대신 순수하게 재연산된 pureTotalAmount를 투입합니다.
+      const result = runMonteCarlo(filteredCategories, pureTotalAmount, 1500);
       setMc(result);
       setMcRunning(false);
     }, 50);
@@ -429,7 +433,7 @@ function WealthDashboard() {
                 </button>
               </div>
               <div className="text-xs mb-3" style={{ color: MUTED }}>
-                2026→2035, 총 {fmtKRW(data.investPlan.totalAmount)}원 기준 · 단계별 목표배분 리밸런싱 가정 · 1,500회 시뮬레이션
+                2026→2035, 총 {fmtKRW(pureTotalAmount)}원 기준 · 단계별 목표배분 리밸런싱 가정 · 1,500회 시뮬레이션
               </div>
 
               {!mc && <div className="text-xs py-6 text-center" style={{ color: MUTED }}>"실행"을 눌러 2035년 예상 자산 분포를 계산하세요</div>}
