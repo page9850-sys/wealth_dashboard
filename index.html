@@ -47,7 +47,6 @@ const {
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } = Recharts;
 
-// ────────────────── 고정된 구글 API 주소 ──────────────────
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbwHr4IbNxoGSbY8mXFwOfW2k_W_vN7vY7H7pU6D6w/exec"; 
 
 const DEMO = {
@@ -210,7 +209,6 @@ function WealthDashboard() {
   const [mc, setMc] = useState(null);
   const [mcRunning, setMcRunning] = useState(false);
 
-  // 앱 첫 로딩 시 자동으로 API 연동 호출
   useEffect(() => {
     fetchData();
   }, []);
@@ -280,6 +278,15 @@ function WealthDashboard() {
   }, [byAsset, totalValue]);
 
   const currentVsTarget2026 = useMemo(() => {
+    return filteredCategories.map(c => ({
+      name: c.name,
+      현재: Math.round(c.currentRatio * 1000) / 10,
+      목PER: Math.round(c.stage1Target * 1000) / 10,
+    }));
+  }, [filteredCategories]);
+
+  // key 오타 수정 (목PER -> 목표)
+  const currentVsTarget2026Fixed = useMemo(() => {
     return filteredCategories.map(c => ({
       name: c.name,
       현재: Math.round(c.currentRatio * 1000) / 10,
@@ -380,7 +387,7 @@ function WealthDashboard() {
             <div className="rounded-2xl p-4" style={{ backgroundColor: PAPER }}>
               <div className="text-sm font-medium mb-3" style={{ color: INK }}>2026년 현재 vs 목표(1단계)</div>
               <ResponsiveContainer width="100%" height={200}>
-                <BarChart data={currentVsTarget2026} barGap={4}>
+                <BarChart data={currentVsTarget2026Fixed} barGap={4}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#D8D2C0" vertical={false} />
                   <XAxis dataKey="name" tick={{ fill: '#5B5744', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: '#5B5744', fontSize: 11 }} axisLine={false} tickLine={false} unit="%" />
