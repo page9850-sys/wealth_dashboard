@@ -4,13 +4,35 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>주식 자산 현황 · Wealth Ledger</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/react-is@18/umd/react-is.production.min.js"></script>
-<script src="https://unpkg.com/prop-types/prop-types.js"></script>
-<script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+  // 아래 CDN 스크립트 중 하나라도 로드/실행 실패하면 흰 화면 대신 에러를 화면에 표시한다.
+  function showFatal(msg) {
+    var el = document.createElement('div');
+    el.style.cssText = 'color:#F3EFE4;background:#1B1F2A;padding:20px;font-family:monospace;font-size:13px;white-space:pre-wrap;min-height:100vh;box-sizing:border-box;';
+    el.textContent = '에러 발생: ' + msg;
+    if (document.body) {
+      document.body.innerHTML = '';
+      document.body.appendChild(el);
+    } else {
+      window.addEventListener('DOMContentLoaded', function () {
+        document.body.innerHTML = '';
+        document.body.appendChild(el);
+      });
+    }
+  }
+  window.addEventListener('error', function (e) {
+    var msg = e.message || '스크립트 로드 실패';
+    if (e.filename) msg += ' (' + e.filename + ')';
+    showFatal(msg);
+  }, true);
+</script>
+<script src="https://cdn.tailwindcss.com" onerror="showFatal('Tailwind CDN 로드 실패')"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" onerror="showFatal('React 로드 실패')"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" onerror="showFatal('ReactDOM 로드 실패')"></script>
+<script src="https://unpkg.com/react-is@18/umd/react-is.production.min.js" onerror="showFatal('react-is 로드 실패')"></script>
+<script src="https://unpkg.com/prop-types/prop-types.js" onerror="showFatal('prop-types 로드 실패')"></script>
+<script src="https://unpkg.com/recharts/umd/Recharts.js" onerror="showFatal('Recharts 로드 실패')"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js" onerror="showFatal('Babel Standalone 로드 실패')"></script>
 <style>
   body { margin: 0; }
   ::-webkit-scrollbar { display: none; }
@@ -18,14 +40,6 @@
 </head>
 <body>
 <div id="root"></div>
-<script>
-  window.onerror = function (msg, url, line, col) {
-    var root = document.getElementById('root');
-    if (root) {
-      root.innerHTML = '<div style="color:#F3EFE4;background:#1B1F2A;padding:20px;font-family:monospace;font-size:12px;white-space:pre-wrap;">에러 발생: ' + msg + ' (줄 ' + line + ')</div>';
-    }
-  };
-</script>
 
 <script type="text/babel" data-presets="react">
 const { useState, useMemo } = React;
