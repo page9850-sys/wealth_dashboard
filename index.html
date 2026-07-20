@@ -9,9 +9,6 @@
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-  <script src="https://unpkg.com/lucide-react@latest"></script>
   
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
@@ -27,36 +24,21 @@
   <script type="text/babel">
     const { useState, useEffect, useMemo } = React;
 
-    // --- 데모/기본 데이터 ---
-    const DEMO_DATA = {
+    const DEFAULT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbymr_oUwSV_1z9Cvqreq0rjcqxiTpuzgCz7K_b-2steRSe5LMV2Fj2f4MgYM9UjjgTS9A/exec';
+
+    const INITIAL_DATA = {
       stockHoldings: [],
-      investPlan: {
-        stages: [
-          { key: 'stage1', period: '2026~29', label: '1단계' },
-          { key: 'stage2', period: '2030~32', label: '2단계' },
-          { key: 'stage3', period: '2033~35', label: '3단계' }
-        ],
-        categories: [
-          { name: 'Nasdaq', currentAmount: 0, currentRatio: 0, stage1Target: 0.20, stage2Target: 0.15, stage3Target: 0.05 },
-          { name: 'S&P500', currentAmount: 0, currentRatio: 0, stage1Target: 0.65, stage2Target: 0.45, stage3Target: 0.35 },
-          { name: 'Dividend', currentAmount: 0, currentRatio: 0, stage1Target: 0.05, stage2Target: 0.25, stage3Target: 0.45 },
-          { name: 'CASH', currentAmount: 0, currentRatio: 0, stage1Target: 0.09, stage2Target: 0.15, stage3Target: 0.15 },
-          { name: 'Bond', currentAmount: 0, currentRatio: 0, stage1Target: 0.01, stage2Target: 0.00, stage3Target: 0.00 },
-        ],
-        totalAmount: 0
-      },
-      realestate: []
+      investPlan: { stages: [], categories: [], totalAmount: 0 },
+      realEstate: []
     };
 
-    // --- 컴포넌트 시작 ---
     function App() {
-      const [data, setData] = useState(DEMO_DATA);
+      const [data, setData] = useState(INITIAL_DATA);
       const [loading, setLoading] = useState(false);
       const [error, setError] = useState(null);
-      const [activeTab, setActiveTab] = useState('summary'); // 'summary' | 'stock' | 'realestate' | 'plan'
-      const [webAppUrl, setWebAppUrl] = useState(() => localStorage.getItem('WEBSITE_WEBAPP_URL') || '');
+      const [activeTab, setActiveTab] = useState('summary');
+      const [webAppUrl, setWebAppUrl] = useState(() => localStorage.getItem('WEBSITE_WEBAPP_URL') || DEFAULT_WEBAPP_URL);
 
-      // 웹앱 데이터 불러오기 (JSONP)
       const fetchData = (url) => {
         if (!url) return;
         setLoading(true);
@@ -73,12 +55,12 @@
         window[callbackName] = (json) => {
           cleanup();
           if (json) {
-            // API의 realestate/realEstate 및 기타 키들의 호환성을 맞추어 처리
-            const normalizedData = {
+            // realEstate 및 realestate 호환 처리
+            const reList = json.realEstate || json.realestate || [];
+            setData({
               ...json,
-              realestate: json.realestate || json.realEstate || []
-            };
-            setData(normalizedData);
+              realEstate: reList
+            });
           } else {
             setError('전달된 데이터 형식이 올바르지 않습니다.');
           }
@@ -97,9 +79,7 @@
       };
 
       useEffect(() => {
-        if (webAppUrl) {
-          fetchData(webAppUrl);
-        }
+        fetchData(webAppUrl);
       }, []);
 
       const handleSaveUrl = (e) => {
@@ -110,31 +90,28 @@
         fetchData(url);
       };
 
-      // 총 자산 계산
       const stockTotal = useMemo(() => {
         return (data.stockHoldings || []).reduce((acc, cur) => acc + (cur.value || 0), 0);
       }, [data.stockHoldings]);
 
       const realEstateTotal = useMemo(() => {
-        return (data.realestate || []).reduce((acc, cur) => {
+        return (data.realEstate || []).reduce((acc, cur) => {
           const latestInspection = cur.inspections && cur.inspections.length > 0 ? cur.inspections[cur.inspections.length - 1] : null;
-          const price = latestInspection ? latestInspection.price : (cur.acquireAmount || 0);
+          const price = latestInspection ? latestInspection.price : (cur.acquireAmount || cur.price || 0);
           return acc + price;
         }, 0);
-      }, [data.realestate]);
+      }, [data.realEstate]);
 
       const grandTotal = stockTotal + realEstateTotal;
 
       return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* 헤더 */}
           <header className="flex flex-col md:flex-row md:items-center md:justify-between pb-6 mb-6 border-b border-slate-200 gap-4">
             <div>
               <h1 className="text-2xl font-bold text-slate-900">자산 통합 대시보드</h1>
               <p className="text-sm text-slate-500 mt-1">주식 및 부동산 자산 현황을 관리합니다.</p>
             </div>
 
-            {/* API URL 설정 폼 */}
             <form onSubmit={handleSaveUrl} className="flex gap-2 items-center">
               <input
                 type="url"
@@ -160,7 +137,6 @@
             </div>
           )}
 
-          {/* 메인 요약 카트 */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
               <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">총 자산</span>
@@ -184,7 +160,6 @@
             </div>
           </div>
 
-          {/* 탭 네비게이션 */}
           <div className="flex border-b border-slate-200 mb-6 gap-6">
             <button
               onClick={() => setActiveTab('summary')}
@@ -208,11 +183,10 @@
                 activeTab === 'realestate' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              부동산 자산 ({data.realestate?.length || 0})
+              부동산 자산 ({data.realEstate?.length || 0})
             </button>
           </div>
 
-          {/* 탭 1: 전체 요약 */}
           {activeTab === 'summary' && (
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
               <h2 className="text-lg font-bold text-slate-900 mb-4">포트폴리오 요약</h2>
@@ -222,7 +196,6 @@
             </div>
           )}
 
-          {/* 탭 2: 주식 자산 */}
           {activeTab === 'stock' && (
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="p-6 border-b border-slate-200">
@@ -267,66 +240,62 @@
             </div>
           )}
 
-          {/* 탭 3: 부동산 자산 */}
           {activeTab === 'realestate' && (
             <div className="space-y-6">
-              {data.realestate && data.realestate.length > 0 ? (
-                data.realestate.map((prop) => {
+              {data.realEstate && data.realEstate.length > 0 ? (
+                data.realEstate.map((prop, idx) => {
                   const latestInspection = prop.inspections && prop.inspections.length > 0 ? prop.inspections[prop.inspections.length - 1] : null;
+                  const price = latestInspection ? latestInspection.price : (prop.acquireAmount || prop.price || 0);
                   return (
-                    <div key={prop.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+                    <div key={prop.id || idx} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                       <div className="flex flex-col md:flex-row justify-between md:items-center pb-4 border-b border-slate-200 gap-2">
                         <div>
                           <span className="inline-block px-2.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 rounded-full mb-1">
-                            {prop.type} ({prop.ownership})
+                            {prop.type || '부동산'} ({prop.ownership || '소유'})
                           </span>
-                          <h3 className="text-xl font-bold text-slate-900">{prop.address}</h3>
-                          <p className="text-sm text-slate-500">{prop.dong} {prop.ho} (면적: {prop.area}㎡)</p>
+                          <h3 className="text-xl font-bold text-slate-900">{prop.address || prop.name || '부동산 항목'}</h3>
+                          <p className="text-sm text-slate-500">{prop.dong} {prop.ho} {prop.area ? `(면적: ${prop.area}㎡)` : ''}</p>
                         </div>
                         <div className="text-right">
-                          <span className="text-xs text-slate-400 block">최근 추정 시세</span>
+                          <span className="text-xs text-slate-400 block">추정 시세 / 금액</span>
                           <span className="text-2xl font-bold text-emerald-600">
-                            ₩ {latestInspection ? latestInspection.price.toLocaleString() : prop.acquireAmount?.toLocaleString()}
+                            ₩ {price.toLocaleString()}
                           </span>
                         </div>
                       </div>
 
-                      {/* 세부 정보 */}
                       <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* 임대차 계약 현황 */}
                         <div>
                           <h4 className="text-sm font-semibold text-slate-900 mb-3">임대차 계약 정보</h4>
                           {prop.tenants && prop.tenants.length > 0 ? (
                             <div className="space-y-2">
-                              {prop.tenants.map((t, idx) => (
-                                <div key={idx} className="p-3 bg-slate-50 rounded-lg text-xs flex justify-between items-center">
+                              {prop.tenants.map((t, tIdx) => (
+                                <div key={tIdx} className="p-3 bg-slate-50 rounded-lg text-xs flex justify-between items-center">
                                   <div>
-                                    <span className="font-semibold text-slate-700">[{t.contractType}]</span> {t.tenant}
-                                    {t.note && <span className="ml-2 text-slate-400">({t.note})</span>}
+                                    <span className="font-semibold text-slate-700">[{t.contractType || '계약'}]</span> {t.tenant}
                                   </div>
                                   <div className="font-medium text-slate-900">
-                                    보증금: ₩ {t.deposit?.toLocaleString()} {t.rent > 0 && `/ 월 ₩ ${t.rent?.toLocaleString()}`}
+                                    보증금: ₩ {(t.deposit || 0).toLocaleString()} {t.rent > 0 && `/ 월 ₩ ${t.rent.toLocaleString()}`}
                                   </div>
                                 </div>
                               ))}
                             </div>
                           ) : (
-                            <p className="text-xs text-slate-400 p-3 bg-slate-50 rounded-lg">등록된 임차인 정보가 없습니다 (자가 거주 등).</p>
+                            <p className="text-xs text-slate-400 p-3 bg-slate-50 rounded-lg">등록된 임차인 정보가 없습니다.</p>
                           )}
                         </div>
 
-                        {/* 최근 수리/유지보수 내역 */}
                         <div>
                           <h4 className="text-sm font-semibold text-slate-900 mb-3">유지보수 내역</h4>
                           {prop.maintenance && prop.maintenance.length > 0 ? (
                             <div className="space-y-2">
-                              {prop.maintenance.map((m, idx) => (
-                                <div key={idx} className="p-3 bg-slate-50 rounded-lg text-xs flex justify-between items-center">
+                              {prop.maintenance.map((m, mIdx) => (
+                                <div key={mIdx} className="p-3 bg-slate-50 rounded-lg text-xs flex justify-between items-center">
                                   <div>
                                     <span className="text-slate-500">{m.date}</span> - <span className="font-medium">{m.item}</span>
                                   </div>
                                   <div className="font-medium text-slate-900">
-                                    ₩ {m.cost?.toLocaleString()}
+                                    ₩ {(m.cost || 0).toLocaleString()}
                                   </div>
                                 </div>
                               ))}
