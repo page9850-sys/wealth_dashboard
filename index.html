@@ -46,44 +46,48 @@ const {
 const DEFAULT_API_URL = "https://script.google.com/macros/s/AKfycbwHr4IbNxoGSTAQNp83tAnfXki0_8JVu-JX31NxnNWqDNMSUFyV_U4Jz16y8ks6F6sIRg/exec"; 
 
 const DEMO = {
+  // 참고: avgPrice 필드는 시트의 F열 값을 그대로 쓰며, 실제로는 "1주당 평균단가"가 아니라
+  // "투자원금(총 매입금액, KRW)"으로 기록되어 있음 — 수익률 계산의 기준값으로 사용.
+  // 아래 name/avgPrice는 실제 시트에서 확인된 값을 우선 반영했고, 나머지는 데모용 근사치임
+  // (실 연동 시에는 시트 데이터가 그대로 정확히 반영됨).
   stockHoldings: [
-    { person: '용이', asset: 'S&P500', value: 92542991.93 },
-    { person: '용이', asset: 'Dividend', value: 4888594.015 },
-    { person: '용이', asset: 'Dividend', value: 1469033.289 },
-    { person: '용이', asset: 'Nasdaq', value: 1278027.715 },
-    { person: '용이', asset: 'S&P500', value: 27769245 },
-    { person: '용이', asset: 'S&P500', value: 12258400 },
-    { person: '용이', asset: 'Nasdaq', value: 20956950 },
-    { person: '용이', asset: 'Nasdaq', value: 18664020 },
-    { person: '용이', asset: 'CASH', value: 1664020 },
-    { person: '용이', asset: 'S&P500', value: 4304655 },
-    { person: '용이', asset: 'S&P500', value: 6407800 },
-    { person: '용이', asset: 'Nasdaq', value: 6819325 },
-    { person: '용이', asset: 'Nasdaq', value: 531360 },
-    { person: '용이', asset: 'Bond', value: 4881000 },
-    { person: '용이', asset: 'Bond', value: 1024500 },
-    { person: '용이', asset: 'CASH', value: 1838840 },
-    { person: '용이', asset: 'S&P500', value: 79059350 },
-    { person: '용이', asset: 'Nasdaq', value: 84160450 },
-    { person: '용이', asset: 'CASH', value: 7000000 },
-    { person: '용이', asset: 'CASH', value: 46794480 },
-    { person: '용이', asset: 'CASH', value: 4058124 },
-    { person: '용이', asset: 'CASH', value: 5003770 },
-    { person: 'Nasdaq', value: 4267000 },
-    { person: '용이', asset: 'CASH', value: 19079 },
-    { person: '갱이', asset: 'S&P500', value: 518915.5875 },
-    { person: '갱이', asset: 'S&P500', value: 31370525 },
-    { person: '갱이', asset: 'S&P500', value: 17217480 },
-    { person: '갱이', asset: 'Nasdaq', value: 33098675 },
-    { person: '갱이', asset: 'Nasdaq', value: 12619800 },
-    { person: '갱이', asset: 'Nasdaq', value: 4032315 },
-    { person: '갱이', asset: 'CASH', value: 708 },
-    { person: '갱이', asset: 'Dividend', value: 7420800 },
-    { person: '갱이', asset: 'Nasdaq', value: 14081100 },
-    { person: '갱이', asset: 'CASH', value: 392980 },
-    { person: '갱이', asset: 'Nasdaq', value: 4160325 },
-    { person: '갱이', asset: 'CASH', value: 8712 },
-    { person: '용이', asset: 'CASH', value: 100000000 },
+    { person: '용이', name: 'Vangard S&P 500', asset: 'S&P500', avgPrice: 46123077, value: 92542991.93 },
+    { person: '용이', name: '리얼티 인컴', asset: 'Dividend', avgPrice: 3886913, value: 4888594.015 },
+    { person: '용이', name: 'SCHD', asset: 'Dividend', avgPrice: 1468727, value: 1469033.289 },
+    { person: '용이', name: 'QQQM', asset: 'Nasdaq', avgPrice: 1325433, value: 1278027.715 },
+    { person: '용이', name: 'ACE 미국 S&P500 ETF', asset: 'S&P500', avgPrice: 15475725, value: 27769245 },
+    { person: '용이', name: 'Tiger 미국 S&P500 ETF', asset: 'S&P500', avgPrice: 5413655, value: 12258400 },
+    { person: '용이', name: 'ACE 미국 나스닥 100 ETF', asset: 'Nasdaq', avgPrice: 8637037, value: 20956950 },
+    { person: '용이', name: 'Tiger 미국테크TOP10 INDXX', asset: 'Nasdaq', avgPrice: 9733820, value: 18664020 },
+    { person: '용이', name: '현금자산', asset: 'CASH', avgPrice: 1664020, value: 1664020 },
+    { person: '용이', name: 'ACE 미국 S&P500 ETF(연금)', asset: 'S&P500', avgPrice: 3900000, value: 4304655 },
+    { person: '용이', name: 'Tiger 미국 S&P500 ETF(연금)', asset: 'S&P500', avgPrice: 5800000, value: 6407800 },
+    { person: '용이', name: 'ACE 미국 나스닥 100 ETF(연금)', asset: 'Nasdaq', avgPrice: 6200000, value: 6819325 },
+    { person: '용이', name: 'Tiger 미국테크TOP10(연금)', asset: 'Nasdaq', avgPrice: 480000, value: 531360 },
+    { person: '용이', name: 'ACE 미국채30년(연금)', asset: 'Bond', avgPrice: 4650000, value: 4881000 },
+    { person: '용이', name: 'ACE 미국하이일드(연금)', asset: 'Bond', avgPrice: 980000, value: 1024500 },
+    { person: '용이', name: '현금자산(연금)', asset: 'CASH', avgPrice: 1838840, value: 1838840 },
+    { person: '용이', name: 'Vangard S&P 500(IRP)', asset: 'S&P500', avgPrice: 71000000, value: 79059350 },
+    { person: '용이', name: 'QQQM(IRP)', asset: 'Nasdaq', avgPrice: 76000000, value: 84160450 },
+    { person: '용이', name: '현금자산(IRP)', asset: 'CASH', avgPrice: 7000000, value: 7000000 },
+    { person: '용이', name: '현금자산(일반)', asset: 'CASH', avgPrice: 46794480, value: 46794480 },
+    { person: '용이', name: 'CMA', asset: 'CASH', avgPrice: 4058124, value: 4058124 },
+    { person: '용이', name: '파킹통장', asset: 'CASH', avgPrice: 5003770, value: 5003770 },
+    { person: '용이', name: 'ACE 미국 나스닥 100 ETF(추가)', asset: 'Nasdaq', avgPrice: 3900000, value: 4267000 },
+    { person: '용이', name: '현금자산(기타)', asset: 'CASH', avgPrice: 19079, value: 19079 },
+    { person: '갱이', name: 'SCHD(갱이)', asset: 'S&P500', avgPrice: 480000, value: 518915.5875 },
+    { person: '갱이', name: 'Vangard S&P 500(갱이)', asset: 'S&P500', avgPrice: 28500000, value: 31370525 },
+    { person: '갱이', name: 'ACE 미국 S&P500 ETF(갱이)', asset: 'S&P500', avgPrice: 15700000, value: 17217480 },
+    { person: '갱이', name: 'ACE 미국 나스닥 100 ETF(갱이)', asset: 'Nasdaq', avgPrice: 30100000, value: 33098675 },
+    { person: '갱이', name: 'QQQM(갱이)', asset: 'Nasdaq', avgPrice: 11500000, value: 12619800 },
+    { person: '갱이', name: 'Tiger 미국테크TOP10(갱이)', asset: 'Nasdaq', avgPrice: 3670000, value: 4032315 },
+    { person: '갱이', name: '현금자산(갱이)', asset: 'CASH', avgPrice: 708, value: 708 },
+    { person: '갱이', name: '리얼티 인컴(갱이)', asset: 'Dividend', avgPrice: 6750000, value: 7420800 },
+    { person: '갱이', name: 'ACE 미국 나스닥 100 ETF(갱이2)', asset: 'Nasdaq', avgPrice: 12800000, value: 14081100 },
+    { person: '갱이', name: '현금자산(갱이2)', asset: 'CASH', avgPrice: 392980, value: 392980 },
+    { person: '갱이', name: 'Tiger 미국테크TOP10(갱이2)', asset: 'Nasdaq', avgPrice: 3780000, value: 4160325 },
+    { person: '갱이', name: '현금자산(갱이3)', asset: 'CASH', avgPrice: 8712, value: 8712 },
+    { person: '용이', name: '정기예금', asset: 'CASH', avgPrice: 100000000, value: 100000000 },
   ],
   investPlan: {
     stages: [
@@ -203,6 +207,7 @@ function WealthDashboard() {
   const [error, setError] = useState('');
   const [mc, setMc] = useState(null);
   const [mcRunning, setMcRunning] = useState(false);
+  const [showDetail, setShowDetail] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -271,20 +276,46 @@ function WealthDashboard() {
     if (data.stockHoldings && Array.isArray(data.stockHoldings)) {
       data.stockHoldings.forEach(h => { 
         if (h.asset !== '총합' && h.asset !== '합계') {
-          map[h.asset] = (map[h.asset] || 0) + (Number(h.value) || 0); 
+          if (!map[h.asset]) map[h.asset] = { value: 0, invested: 0 };
+          map[h.asset].value += (Number(h.value) || 0);
+          map[h.asset].invested += (Number(h.avgPrice) || Number(h.value) || 0);
         }
       });
     }
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
+    return Object.entries(map).map(([name, v]) => ({ name, value: v.value, invested: v.invested }));
   }, [data.stockHoldings]);
 
   const totalValue = useMemo(() => byAsset.reduce((s, x) => s + x.value, 0), [byAsset]);
+  const totalInvested = useMemo(() => byAsset.reduce((s, x) => s + x.invested, 0), [byAsset]);
+  const totalProfitAmount = totalValue - totalInvested;
+  const totalProfitRate = totalInvested ? (totalProfitAmount / totalInvested) * 100 : 0;
 
   const byAssetWithPct = useMemo(() => {
     return byAsset
-      .map(a => ({ ...a, pct: totalValue ? (a.value / totalValue) * 100 : 0 }))
+      .map(a => ({
+        ...a,
+        pct: totalValue ? (a.value / totalValue) * 100 : 0,
+        profitRate: a.invested ? ((a.value - a.invested) / a.invested) * 100 : 0,
+      }))
       .sort((a, b) => b.value - a.value);
   }, [byAsset, totalValue]);
+
+  // 세부항목: ETF(상품명)별로 투자원금/평가금액/수익율 집계
+  const byName = useMemo(() => {
+    const map = {};
+    if (data.stockHoldings && Array.isArray(data.stockHoldings)) {
+      data.stockHoldings.forEach(h => {
+        if (h.asset === '총합' || h.asset === '합계') return;
+        const key = h.name || h.asset || '기타';
+        if (!map[key]) map[key] = { name: key, asset: h.asset, value: 0, invested: 0 };
+        map[key].value += (Number(h.value) || 0);
+        map[key].invested += (Number(h.avgPrice) || Number(h.value) || 0);
+      });
+    }
+    return Object.values(map)
+      .map(r => ({ ...r, profitRate: r.invested ? ((r.value - r.invested) / r.invested) * 100 : 0 }))
+      .sort((a, b) => b.value - a.value);
+  }, [data.stockHoldings]);
 
   const currentVsTarget2026Fixed = useMemo(() => {
     return filteredCategories.map(c => ({
@@ -360,8 +391,22 @@ function WealthDashboard() {
           <div className="space-y-4">
 
             <div className="rounded-2xl p-4" style={{ backgroundColor: PAPER }}>
-              <div className="text-xs tracking-wide" style={{ color: MUTED }}>총 평가액</div>
-              <div className="text-3xl mt-1 tabular-nums" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(totalValue)}원</div>
+              <div className="flex items-start justify-between">
+                <div className="text-xs tracking-wide" style={{ color: MUTED }}>총 평가액</div>
+                <button
+                  onClick={() => setShowDetail(v => !v)}
+                  className="text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: showDetail ? INK : '#E5DFCE', color: showDetail ? PAPER : '#5B5744' }}
+                >
+                  세부항목 {showDetail ? '▲' : '▼'}
+                </button>
+              </div>
+              <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                <div className="text-3xl tabular-nums" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(totalValue)}원</div>
+                <div className="text-sm font-medium tabular-nums" style={{ color: totalProfitAmount >= 0 ? SAGE : RUST, fontFamily: 'ui-monospace, monospace' }}>
+                  {totalProfitAmount >= 0 ? '+' : ''}{totalProfitRate.toFixed(1)}% ({totalProfitAmount >= 0 ? '+' : ''}{fmtKRW(totalProfitAmount)}원)
+                </div>
+              </div>
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={byAsset} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
@@ -379,11 +424,47 @@ function WealthDashboard() {
                       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: PIE_COLORS[a.name] || catColors[i % catColors.length] }}></span>
                       <span style={{ color: '#5B5744' }} className="truncate">{a.name}</span>
                     </div>
-                    <span className="tabular-nums font-medium flex-shrink-0" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{a.pct.toFixed(1)}%</span>
+                    <span className="tabular-nums font-medium flex-shrink-0 flex items-baseline gap-1" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>
+                      {a.pct.toFixed(1)}%
+                      <span style={{ color: a.profitRate >= 0 ? SAGE : RUST, fontSize: '0.65rem' }}>
+                        ({a.profitRate >= 0 ? '+' : ''}{a.profitRate.toFixed(1)}%)
+                      </span>
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
+
+            {showDetail && (
+              <div className="rounded-2xl p-4" style={{ backgroundColor: PAPER }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-medium" style={{ color: INK }}>세부항목 (ETF별 손익)</div>
+                  <button
+                    onClick={() => setShowDetail(false)}
+                    className="w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold flex-shrink-0"
+                    style={{ backgroundColor: INK, color: PAPER }}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="grid grid-cols-[1fr,auto,auto,auto] gap-x-2 gap-y-2 text-xs">
+                  <div style={{ color: MUTED }}>ETF</div>
+                  <div className="text-right" style={{ color: MUTED }}>투자원금</div>
+                  <div className="text-right" style={{ color: MUTED }}>평가금액</div>
+                  <div className="text-right" style={{ color: MUTED }}>수익률</div>
+                  {byName.map((r) => (
+                    <React.Fragment key={r.name}>
+                      <div className="truncate" style={{ color: INK }}>{r.name}</div>
+                      <div className="text-right tabular-nums" style={{ color: '#5B5744', fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(r.invested)}</div>
+                      <div className="text-right tabular-nums" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(r.value)}</div>
+                      <div className="text-right tabular-nums font-medium" style={{ color: r.profitRate >= 0 ? SAGE : RUST, fontFamily: 'ui-monospace, monospace' }}>
+                        {r.profitRate >= 0 ? '+' : ''}{r.profitRate.toFixed(1)}%
+                      </div>
+                    </React.Fragment>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="rounded-2xl p-4" style={{ backgroundColor: PAPER }}>
               <div className="text-sm font-medium mb-3" style={{ color: INK }}>2026년 현재 vs 목표(1단계)</div>
