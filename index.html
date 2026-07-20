@@ -3,22 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>자산관리 대시보드</title>
-  <!-- Tailwind CSS & React / Babel CDNs -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>금융 자산 현황 · Wealth Ledger</title>
+  <!-- React & Babel CDNs -->
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  
+  <script src="https://cdn.tailwindcss.com"></script>
+
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700&display=swap');
     body {
       font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-      background-color: #f8fafc;
+      background-color: #11141d;
+      color: #F3EFE4;
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+<body class="bg-[#11141d] text-[#F3EFE4] antialiased min-h-screen">
   <div id="root"></div>
 
   <script type="text/babel">
@@ -26,19 +27,56 @@
 
     const DEFAULT_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbymr_oUwSV_1z9Cvqreq0rjcqxiTpuzgCz7K_b-2steRSe5LMV2Fj2f4MgYM9UjjgTS9A/exec';
 
+    // 기본 데모 데이터 구조
     const INITIAL_DATA = {
       stockHoldings: [],
-      investPlan: { stages: [], categories: [], totalAmount: 0 },
-      realEstate: []
+      investPlan: {
+        stages: [
+          { key: 'stage1Target', label: '1단계 (2026~29)' },
+          { key: 'stage2Target', label: '2단계 (2030~32)' },
+          { key: 'stage3Target', label: '3단계 (2033~35)' }
+        ],
+        categories: [
+          { name: 'Nasdaq', currentAmount: 0, currentRatio: 0, stage1Target: 0.20, stage2Target: 0.15, stage3Target: 0.05 },
+          { name: 'S&P500', currentAmount: 0, currentRatio: 0, stage1Target: 0.65, stage2Target: 0.45, stage3Target: 0.35 },
+          { name: 'Dividend', currentAmount: 0, currentRatio: 0, stage1Target: 0.05, stage2Target: 0.25, stage3Target: 0.45 },
+          { name: 'CASH', currentAmount: 0, currentRatio: 0, stage1Target: 0.09, stage2Target: 0.15, stage3Target: 0.15 },
+          { name: 'Bond', currentAmount: 0, currentRatio: 0, stage1Target: 0.01, stage2Target: 0.00, stage3Target: 0.00 }
+        ],
+        totalAmount: 0
+      },
+      realEstate: [
+        {
+          id: 're1',
+          type: '아파트',
+          address: '서울특별시 서대문구 남가좌동 385, 디엠씨파크뷰자이',
+          ownership: '갭투자',
+          dong: '제303동',
+          ho: '제1003호',
+          area: 59.9,
+          acquireDate: "'22.02",
+          acquireAmount: 100000000,
+          inspections: [{ month: "'26.07", price: 500000000, officialPrice: 300000000 }],
+          taxes: [
+            { taxMonth: "'25.05", propertyTax: null, comprehensiveTax: 1500000 },
+            { taxMonth: "'25.07", propertyTax: 1500000, comprehensiveTax: null },
+            { taxMonth: "'26.07", propertyTax: 2000000, comprehensiveTax: null }
+          ],
+          tenants: [{ tenant: '아무개', contractType: '전세', deposit: 350000000, rent: 0 }],
+          maintenance: [{ date: "'25.05", item: '소화기 교체', cost: 1500000, tenant: '아무개' }]
+        }
+      ]
     };
 
     function App() {
       const [data, setData] = useState(INITIAL_DATA);
       const [loading, setLoading] = useState(false);
       const [error, setError] = useState(null);
-      const [activeTab, setActiveTab] = useState('summary');
+      const [activeTab, setActiveTab] = useState('realestate'); // 'stock' | 'realestate' | 'retire'
       const [webAppUrl, setWebAppUrl] = useState(() => localStorage.getItem('WEBSITE_WEBAPP_URL') || DEFAULT_WEBAPP_URL);
+      const [expandedTenant, setExpandedTenant] = useState({});
 
+      // Google Apps Script JSONP 받아오기
       const fetchData = (url) => {
         if (!url) return;
         setLoading(true);
@@ -55,21 +93,23 @@
         window[callbackName] = (json) => {
           cleanup();
           if (json) {
-            // realEstate 및 realestate 호환 처리
+            // API의 realEstate 또는 realestate 수신 및 병합
             const reList = json.realEstate || json.realestate || [];
-            setData({
-              ...json,
-              realEstate: reList
-            });
+            setData(prev => ({
+              ...prev,
+              stockHoldings: json.stockHoldings || prev.stockHoldings,
+              investPlan: json.investPlan || prev.investPlan,
+              realEstate: reList.length > 0 ? reList : prev.realEstate
+            }));
           } else {
-            setError('전달된 데이터 형식이 올바르지 않습니다.');
+            setError('전달받은 데이터 형식이 올바르지 않습니다.');
           }
           setLoading(false);
         };
 
         script.onerror = () => {
           cleanup();
-          setError('데이터를 불러오는데 실패했습니다. URL을 확인해주세요.');
+          setError('API 동기화 실패. URL 및 배포 권한을 확인해 주세요.');
           setLoading(false);
         };
 
@@ -82,237 +122,273 @@
         fetchData(webAppUrl);
       }, []);
 
-      const handleSaveUrl = (e) => {
-        e.preventDefault();
-        const url = e.target.url.value.trim();
-        setWebAppUrl(url);
-        localStorage.setItem('WEBSITE_WEBAPP_URL', url);
-        fetchData(url);
+      const toggleTenant = (id) => {
+        setExpandedTenant(prev => ({ ...prev, [id]: !prev[id] }));
       };
 
-      const stockTotal = useMemo(() => {
-        return (data.stockHoldings || []).reduce((acc, cur) => acc + (cur.value || 0), 0);
+      // 총 주식 자산
+      const totalStock = useMemo(() => {
+        return (data.stockHoldings || []).reduce((sum, item) => sum + (item.value || 0), 0);
       }, [data.stockHoldings]);
 
-      const realEstateTotal = useMemo(() => {
-        return (data.realEstate || []).reduce((acc, cur) => {
-          const latestInspection = cur.inspections && cur.inspections.length > 0 ? cur.inspections[cur.inspections.length - 1] : null;
-          const price = latestInspection ? latestInspection.price : (cur.acquireAmount || cur.price || 0);
-          return acc + price;
+      // 총 부동산 시세 평가액
+      const totalRealEstate = useMemo(() => {
+        return (data.realEstate || []).reduce((sum, item) => {
+          const lastInsp = item.inspections && item.inspections.length > 0 ? item.inspections[item.inspections.length - 1] : null;
+          const price = lastInsp ? (lastInsp.price || lastInsp.officialPrice || 0) : (item.acquireAmount || 0);
+          return sum + price;
         }, 0);
       }, [data.realEstate]);
 
-      const grandTotal = stockTotal + realEstateTotal;
-
       return (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <header className="flex flex-col md:flex-row md:items-center md:justify-between pb-6 mb-6 border-b border-slate-200 gap-4">
+        <div className="max-w-6xl mx-auto px-4 py-8">
+          {/* 상단 헤더 */}
+          <header className="flex flex-col md:flex-row justify-between items-start md:items-center pb-6 mb-8 border-b border-slate-800 gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">자산 통합 대시보드</h1>
-              <p className="text-sm text-slate-500 mt-1">주식 및 부동산 자산 현황을 관리합니다.</p>
+              <span className="text-xs font-bold text-amber-500 tracking-widest uppercase">WEALTH LEDGER</span>
+              <h1 className="text-2xl font-bold text-white mt-1">자산 통합 관리 대시보드</h1>
             </div>
 
-            <form onSubmit={handleSaveUrl} className="flex gap-2 items-center">
-              <input
-                type="url"
-                name="url"
-                defaultValue={webAppUrl}
-                placeholder="Google Apps Script 웹앱 URL"
-                className="px-3 py-1.5 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-64 md:w-80"
-                required
-              />
+            <div className="flex items-center gap-3">
               <button
-                type="submit"
+                onClick={() => fetchData(webAppUrl)}
                 disabled={loading}
-                className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-semibold text-xs rounded-lg transition-all disabled:opacity-50"
               >
-                {loading ? '동기화 중...' : '동기화'}
+                {loading ? '동기화 중...' : '🔄 실시간 동기화'}
               </button>
-            </form>
+            </div>
           </header>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+            <div className="mb-6 p-4 bg-red-950/50 border border-red-500/50 text-red-300 text-sm rounded-lg">
               {error}
             </div>
           )}
 
+          {/* 메인 요약 자산 카드 */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">총 자산</span>
-              <div className="text-2xl font-bold text-slate-900 mt-2">
-                ₩ {grandTotal.toLocaleString()}
+            <div className="bg-[#1b202e] p-6 rounded-xl border border-slate-800">
+              <span className="text-xs text-slate-400 font-medium">총 순자산 평가액</span>
+              <div className="text-2xl font-bold text-white mt-2">
+                ₩ {((totalStock + totalRealEstate) / 100000000).toFixed(2)} 억원
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">금융 자산 (주식/현금)</span>
-              <div className="text-2xl font-bold text-blue-600 mt-2">
-                ₩ {stockTotal.toLocaleString()}
+            <div className="bg-[#1b202e] p-6 rounded-xl border border-slate-800">
+              <span className="text-xs text-slate-400 font-medium">📈 주식 / 금융 자산</span>
+              <div className="text-2xl font-bold text-amber-400 mt-2">
+                ₩ {(totalStock / 100000000).toFixed(2)} 억원
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">부동산 자산</span>
-              <div className="text-2xl font-bold text-emerald-600 mt-2">
-                ₩ {realEstateTotal.toLocaleString()}
+            <div className="bg-[#1b202e] p-6 rounded-xl border border-slate-800">
+              <span className="text-xs text-slate-400 font-medium">🏢 부동산 자산 (시세)</span>
+              <div className="text-2xl font-bold text-emerald-400 mt-2">
+                ₩ {(totalRealEstate / 100000000).toFixed(2)} 억원
               </div>
             </div>
           </div>
 
-          <div className="flex border-b border-slate-200 mb-6 gap-6">
-            <button
-              onClick={() => setActiveTab('summary')}
-              className={`pb-3 font-medium text-sm transition-colors relative ${
-                activeTab === 'summary' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              요약
-            </button>
+          {/* 탭 구분 버튼 */}
+          <div className="flex gap-4 border-b border-slate-800 pb-4 mb-8">
             <button
               onClick={() => setActiveTab('stock')}
-              className={`pb-3 font-medium text-sm transition-colors relative ${
-                activeTab === 'stock' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === 'stock' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800/50 text-slate-400 hover:text-white'
               }`}
             >
-              주식 자산 ({data.stockHoldings?.length || 0})
+              📈 주식 자산 ({data.stockHoldings?.length || 0})
             </button>
             <button
               onClick={() => setActiveTab('realestate')}
-              className={`pb-3 font-medium text-sm transition-colors relative ${
-                activeTab === 'realestate' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-slate-500 hover:text-slate-700'
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === 'realestate' ? 'bg-amber-500 text-slate-950' : 'bg-slate-800/50 text-slate-400 hover:text-white'
               }`}
             >
-              부동산 자산 ({data.realEstate?.length || 0})
+              🏢 부동산 자산 ({data.realEstate?.length || 0})
             </button>
           </div>
 
-          {activeTab === 'summary' && (
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">포트폴리오 요약</h2>
-              <p className="text-slate-600 text-sm">
-                상단 탭을 통해 주식 및 부동산 자산의 상세 정보와 임대/세금 현황을 확인하실 수 있습니다.
-              </p>
-            </div>
-          )}
-
-          {activeTab === 'stock' && (
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-slate-200">
-                <h2 className="text-lg font-bold text-slate-900">주식 보유 현황</h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left text-slate-600">
-                  <thead className="bg-slate-50 text-slate-700 font-semibold border-b border-slate-200">
-                    <tr>
-                      <th className="px-6 py-3">소유자</th>
-                      <th className="px-6 py-3">증권사</th>
-                      <th className="px-6 py-3">계좌</th>
-                      <th className="px-6 py-3">종목명</th>
-                      <th className="px-6 py-3 text-right">보유수량</th>
-                      <th className="px-6 py-3 text-right">평가금액</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {data.stockHoldings && data.stockHoldings.length > 0 ? (
-                      data.stockHoldings.map((item, idx) => (
-                        <tr key={idx} className="hover:bg-slate-50">
-                          <td className="px-6 py-4">{item.person}</td>
-                          <td className="px-6 py-4">{item.broker}</td>
-                          <td className="px-6 py-4">{item.account}</td>
-                          <td className="px-6 py-4 font-medium text-slate-900">{item.name}</td>
-                          <td className="px-6 py-4 text-right">{item.shares?.toLocaleString()}</td>
-                          <td className="px-6 py-4 text-right font-medium text-slate-900">
-                            ₩ {Math.round(item.value || 0).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="6" className="px-6 py-8 text-center text-slate-400">
-                          등록된 주식 데이터가 없습니다.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
+          {/* 부동산 자산 탭 UI */}
           {activeTab === 'realestate' && (
             <div className="space-y-6">
               {data.realEstate && data.realEstate.length > 0 ? (
-                data.realEstate.map((prop, idx) => {
-                  const latestInspection = prop.inspections && prop.inspections.length > 0 ? prop.inspections[prop.inspections.length - 1] : null;
-                  const price = latestInspection ? latestInspection.price : (prop.acquireAmount || prop.price || 0);
+                data.realEstate.map((item, idx) => {
+                  const lastInsp = item.inspections && item.inspections.length > 0 ? item.inspections[item.inspections.length - 1] : null;
+                  const currentPrice = lastInsp ? (lastInsp.price || 0) : (item.acquireAmount || 0);
+                  const officialPrice = lastInsp ? (lastInsp.officialPrice || 0) : 0;
+                  const acquirePrice = item.acquireAmount || 0;
+                  const profit = currentPrice - acquirePrice;
+                  const profitRate = acquirePrice > 0 ? ((profit / acquirePrice) * 100).toFixed(1) : '0.0';
+
                   return (
-                    <div key={prop.id || idx} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-                      <div className="flex flex-col md:flex-row justify-between md:items-center pb-4 border-b border-slate-200 gap-2">
+                    <div key={item.id || idx} className="bg-[#1b202e] rounded-xl border border-slate-800 p-6 space-y-6">
+                      {/* 부동산 헤더 */}
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-4 gap-4">
                         <div>
-                          <span className="inline-block px-2.5 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 rounded-full mb-1">
-                            {prop.type || '부동산'} ({prop.ownership || '소유'})
-                          </span>
-                          <h3 className="text-xl font-bold text-slate-900">{prop.address || prop.name || '부동산 항목'}</h3>
-                          <p className="text-sm text-slate-500">{prop.dong} {prop.ho} {prop.area ? `(면적: ${prop.area}㎡)` : ''}</p>
+                          <div className="flex items-center gap-2">
+                            <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-950 text-emerald-400 border border-emerald-800/50 rounded">
+                              {item.type || '아파트'}
+                            </span>
+                            <span className="text-xs text-amber-400 font-medium">소유형태: {item.ownership || '자가'}</span>
+                          </div>
+                          <h2 className="text-lg font-bold text-white mt-1">{item.address || item.name}</h2>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {item.dong} {item.ho} {item.area ? `(면적: ${item.area}㎡)` : ''}
+                          </p>
                         </div>
-                        <div className="text-right">
-                          <span className="text-xs text-slate-400 block">추정 시세 / 금액</span>
-                          <span className="text-2xl font-bold text-emerald-600">
-                            ₩ {price.toLocaleString()}
+
+                        {/* 시세 및 수익률 */}
+                        <div className="text-left md:text-right">
+                          <span className="text-xs text-slate-400 block">점검일 ({lastInsp ? lastInsp.month : '-'}) 시세</span>
+                          <span className="text-2xl font-bold text-emerald-400">
+                            {(currentPrice / 100000000).toFixed(2)} 억 원
                           </span>
+                          <div className="text-xs text-slate-400 mt-1">
+                            공시가격: <span className="text-slate-200">{(officialPrice / 100000000).toFixed(2)} 억 원</span>
+                          </div>
+                          <div className="text-xs font-semibold text-rose-400 mt-0.5">
+                            취득가 대비 수익률: +{profitRate}% (+{(profit / 100000000).toFixed(2)} 억 원)
+                          </div>
                         </div>
                       </div>
 
-                      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <h4 className="text-sm font-semibold text-slate-900 mb-3">임대차 계약 정보</h4>
-                          {prop.tenants && prop.tenants.length > 0 ? (
-                            <div className="space-y-2">
-                              {prop.tenants.map((t, tIdx) => (
-                                <div key={tIdx} className="p-3 bg-slate-50 rounded-lg text-xs flex justify-between items-center">
-                                  <div>
-                                    <span className="font-semibold text-slate-700">[{t.contractType || '계약'}]</span> {t.tenant}
-                                  </div>
-                                  <div className="font-medium text-slate-900">
-                                    보증금: ₩ {(t.deposit || 0).toLocaleString()} {t.rent > 0 && `/ 월 ₩ ${t.rent.toLocaleString()}`}
-                                  </div>
-                                </div>
-                              ))}
+                      {/* 하부 세부 정보 (임차인, 세금, 수리내역) */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                        {/* 임차인 및 세금 정보 */}
+                        <div className="space-y-4">
+                          <div>
+                            <div className="flex justify-between items-center mb-2">
+                              <h3 className="text-xs font-bold text-slate-300">임차인 정보</h3>
+                              <button
+                                onClick={() => toggleTenant(item.id || idx)}
+                                className="text-xs text-amber-400 hover:underline"
+                              >
+                                {expandedTenant[item.id || idx] ? '접기 ▲' : '임차인정보 ▼'}
+                              </button>
                             </div>
-                          ) : (
-                            <p className="text-xs text-slate-400 p-3 bg-slate-50 rounded-lg">등록된 임차인 정보가 없습니다.</p>
-                          )}
+
+                            {expandedTenant[item.id || idx] && (
+                              <div className="p-3 bg-slate-900/80 rounded-lg text-xs space-y-2 border border-slate-800">
+                                {item.tenants && item.tenants.length > 0 ? (
+                                  item.tenants.map((t, tIdx) => (
+                                    <div key={tIdx} className="flex justify-between items-center text-slate-300">
+                                      <span>[{t.contractType || '전세'}] {t.tenant}</span>
+                                      <span className="font-semibold text-amber-400">
+                                        보증금: {(t.deposit / 100000000).toFixed(2)}억 {t.rent > 0 && `/ 월 ${(t.rent / 10000).toFixed(0)}만`}
+                                      </span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-slate-500">등록된 임차인 정보가 없습니다 (자가 거주 등).</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* 최근 세금 납부현황 */}
+                          <div>
+                            <h3 className="text-xs font-bold text-slate-300 mb-2">최근 세금 납부현황</h3>
+                            <div className="bg-slate-900/60 rounded-lg p-3 border border-slate-800 text-xs">
+                              {item.taxes && item.taxes.length > 0 ? (
+                                <table className="w-full text-left text-slate-400">
+                                  <thead>
+                                    <tr className="border-b border-slate-800 text-slate-500">
+                                      <th className="pb-1">납부월</th>
+                                      <th className="pb-1">재산세</th>
+                                      <th className="pb-1">종부세</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-800/40">
+                                    {item.taxes.map((tax, taxIdx) => (
+                                      <tr key={taxIdx}>
+                                        <td className="py-1 text-slate-300">{tax.taxMonth}</td>
+                                        <td className="py-1">{tax.propertyTax ? `${(tax.propertyTax / 10000).toFixed(0)}만 원` : '-'}</td>
+                                        <td className="py-1">{tax.comprehensiveTax ? `${(tax.comprehensiveTax / 10000).toFixed(0)}만 원` : '-'}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              ) : (
+                                <p className="text-slate-500">등록된 세금 납부 내역이 없습니다.</p>
+                              )}
+                            </div>
+                          </div>
                         </div>
 
+                        {/* 수리 / 유지비 내역 */}
                         <div>
-                          <h4 className="text-sm font-semibold text-slate-900 mb-3">유지보수 내역</h4>
-                          {prop.maintenance && prop.maintenance.length > 0 ? (
-                            <div className="space-y-2">
-                              {prop.maintenance.map((m, mIdx) => (
-                                <div key={mIdx} className="p-3 bg-slate-50 rounded-lg text-xs flex justify-between items-center">
-                                  <div>
-                                    <span className="text-slate-500">{m.date}</span> - <span className="font-medium">{m.item}</span>
+                          <h3 className="text-xs font-bold text-slate-300 mb-2">수리 / 유지비 내역</h3>
+                          <div className="bg-slate-900/60 rounded-lg p-3 border border-slate-800 text-xs">
+                            {item.maintenance && item.maintenance.length > 0 ? (
+                              <div className="space-y-2">
+                                {item.maintenance.map((m, mIdx) => (
+                                  <div key={mIdx} className="flex justify-between items-center text-slate-400">
+                                    <div>
+                                      <span className="text-slate-500">{m.date}</span> - <span className="text-slate-200">{m.item}</span>
+                                    </div>
+                                    <div className="font-semibold text-amber-400">
+                                      {(m.cost / 10000).toFixed(0)}만 원
+                                    </div>
                                   </div>
-                                  <div className="font-medium text-slate-900">
-                                    ₩ {(m.cost || 0).toLocaleString()}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-slate-400 p-3 bg-slate-50 rounded-lg">등록된 유지보수 내역이 없습니다.</p>
-                          )}
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-slate-500">등록된 수리 및 유지비 내역이 없습니다.</p>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <div className="bg-white p-12 rounded-xl border border-slate-200 text-center text-slate-400">
-                  등록된 부동산 정보가 없거나 데이터를 불러오는 중입니다.
+                <div className="bg-[#1b202e] p-12 rounded-xl text-center text-slate-500 border border-slate-800">
+                  등록된 부동산 정보가 없습니다.
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 주식 자산 탭 UI */}
+          {activeTab === 'stock' && (
+            <div className="bg-[#1b202e] rounded-xl border border-slate-800 p-6">
+              <h2 className="text-lg font-bold text-white mb-4">보유 주식 목록</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left text-slate-300">
+                  <thead className="bg-slate-900 text-slate-400 border-b border-slate-800">
+                    <tr>
+                      <th className="p-3">소유자</th>
+                      <th className="p-3">증권사</th>
+                      <th className="p-3">종목명</th>
+                      <th className="p-3 text-right">수량</th>
+                      <th className="p-3 text-right">평가금액</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {data.stockHoldings && data.stockHoldings.length > 0 ? (
+                      data.stockHoldings.map((s, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/40">
+                          <td className="p-3">{s.person}</td>
+                          <td className="p-3">{s.broker}</td>
+                          <td className="p-3 font-semibold text-white">{s.name}</td>
+                          <td className="p-3 text-right">{s.shares?.toLocaleString()}</td>
+                          <td className="p-3 text-right font-semibold text-amber-400">
+                            ₩ {Math.round(s.value || 0).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="5" className="p-8 text-center text-slate-500">
+                          주식 데이터가 없습니다. 상단의 동기화 버튼을 눌러주세요.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
