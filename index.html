@@ -104,6 +104,58 @@ const DEMO = {
     ],
     totalAmount: 662583350.5,
   },
+  // 참고: 시트의 취득가액/시세/공시가격은 "백만원" 단위, 재산세/종부세는 "만원" 단위로 기록되어 있어
+  // 아래에서 원 단위로 환산함 (예: 100 → 1억원, 150(만원) → 150만원)
+  realEstate: [
+    {
+      id: 'prop1',
+      type: '아파트', ownership: '갭투자',
+      address: '서울특별시 서대문구 남가좌동 385, 디엠씨파크뷰자이',
+      dong: '제303동', ho: '제1003호', area: 59.9, lawdCode: 11410,
+      acquireDate: "'22.02", acquireAmount: 100 * 1000000,
+      inspections: [
+        { month: "'26.07", price: 500 * 1000000, officialPrice: 300 * 1000000 },
+      ],
+      taxes: [
+        { taxMonth: "'25.05", propertyTax: null, comprehensiveTax: 150 * 10000 },
+        { taxMonth: "'25.07", propertyTax: 150 * 10000, comprehensiveTax: null },
+        { taxMonth: "'25.09", propertyTax: 150 * 10000, comprehensiveTax: null },
+        { taxMonth: "'26.05", propertyTax: null, comprehensiveTax: 200 * 10000 },
+        { taxMonth: "'26.07", propertyTax: 200 * 10000, comprehensiveTax: null },
+        { taxMonth: "'26.09", propertyTax: 200 * 10000, comprehensiveTax: null },
+      ],
+      tenants: [
+        { contractType: '전세', period: null, deposit: 150 * 1000000, rent: 0, tenant: '이보람', note: null },
+        { contractType: '전세', period: null, deposit: 150 * 1000000, rent: 0, tenant: '이보람', note: null },
+        { contractType: '월세', period: null, deposit: 150 * 1000000, rent: 800000, tenant: '아무개', note: null },
+        { contractType: '월세', period: null, deposit: 150 * 1000000, rent: 910000, tenant: '아무개', note: '계약갱신' },
+      ],
+      maintenance: [
+        { date: "'25.05", place: 'DMC', item: '소화기', cost: 150 * 10000, tenant: '아무개' },
+        { date: "'25.05", place: 'DMC', item: '소화기', cost: 150 * 10000, tenant: '아무개' },
+      ],
+    },
+    {
+      id: 'prop2',
+      type: '아파트', ownership: '자가',
+      address: '경기도 파주시 야당동 1015, 롯데캐슬파크타운2',
+      dong: '제411동', ho: '제701호', area: 59.9, lawdCode: 41480,
+      acquireDate: "'22.02", acquireAmount: 100 * 1000000,
+      inspections: [
+        { month: "'26.07", price: 500 * 1000000, officialPrice: 300 * 1000000 },
+      ],
+      taxes: [
+        { taxMonth: "'25.05", propertyTax: null, comprehensiveTax: 150 * 10000 },
+        { taxMonth: "'25.07", propertyTax: 150 * 10000, comprehensiveTax: null },
+        { taxMonth: "'25.09", propertyTax: 150 * 10000, comprehensiveTax: null },
+        { taxMonth: "'26.05", propertyTax: null, comprehensiveTax: 200 * 10000 },
+        { taxMonth: "'26.07", propertyTax: 200 * 10000, comprehensiveTax: null },
+        { taxMonth: "'26.09", propertyTax: 200 * 10000, comprehensiveTax: null },
+      ],
+      tenants: [],
+      maintenance: [],
+    },
+  ],
 };
 
 const ASSUMPTIONS = {
@@ -208,6 +260,7 @@ function WealthDashboard() {
   const [mc, setMc] = useState(null);
   const [mcRunning, setMcRunning] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const [tenantOpen, setTenantOpen] = useState({});
 
   useEffect(() => {
     fetchData();
@@ -314,8 +367,42 @@ function WealthDashboard() {
     }
     return Object.values(map)
       .map(r => ({ ...r, profitRate: r.invested ? ((r.value - r.invested) / r.invested) * 100 : 0 }))
-      .sort((a, b) => b.value - a.value);
+      .sort((a, b) => b.profitRate - a.profitRate);
   }, [data.stockHoldings]);
+
+  // ────────────────── 부동산 ──────────────────
+  function parseTaxYear(monthStr) {
+    if (!monthStr) return null;
+    const m = String(monthStr).match(/'?(\d{2})\.(\d{2})/);
+    if (!m) return null;
+    return 2000 + parseInt(m[1], 10);
+  }
+
+  const realEstateWithStats = useMemo(() => {
+    const list = (data.realEstate && Array.isArray(data.realEstate)) ? data.realEstate : [];
+    return list.map(p => {
+      const inspections = (p.inspections || []).filter(x => x && x.month);
+      const latest = inspections.length ? inspections[inspections.length - 1] : null;
+      const profitRate = (latest && p.acquireAmount) ? ((latest.price - p.acquireAmount) / p.acquireAmount) * 100 : 0;
+      const profitAmount = latest ? (latest.price - p.acquireAmount) : 0;
+
+      const yearMap = {};
+      (p.taxes || []).forEach(t => {
+        const y = parseTaxYear(t.taxMonth);
+        if (!y) return;
+        if (!yearMap[y]) yearMap[y] = { year: y, propertyTax: 0, comprehensiveTax: 0 };
+        yearMap[y].propertyTax += Number(t.propertyTax) || 0;
+        yearMap[y].comprehensiveTax += Number(t.comprehensiveTax) || 0;
+      });
+      const taxByYear = Object.values(yearMap).sort((a, b) => b.year - a.year).slice(0, 3);
+
+      const trendData = inspections.map(ins => ({
+        month: ins.month, 시세: ins.price, 공시가격: ins.officialPrice,
+      }));
+
+      return { ...p, latest, profitRate, profitAmount, taxByYear, trendData };
+    });
+  }, [data.realEstate]);
 
   const currentVsTarget2026Fixed = useMemo(() => {
     return filteredCategories.map(c => ({
@@ -381,7 +468,7 @@ function WealthDashboard() {
             onChange={setTab}
             options={[
               { key: 'stocks', label: '주식', icon: '📈', enabled: true },
-              { key: 'realestate', label: '부동산', icon: '🏢', enabled: false },
+              { key: 'realestate', label: '부동산', icon: '🏢', enabled: true },
               { key: 'retirement', label: '은퇴', icon: '🐷', enabled: false },
             ]}
           />
@@ -547,6 +634,149 @@ function WealthDashboard() {
                 </>
               )}
             </div>
+          </div>
+        )}
+
+        {tab === 'realestate' && (
+          <div className="space-y-4">
+            {realEstateWithStats.map((p) => (
+              <div key={p.id} className="rounded-2xl p-4" style={{ backgroundColor: PAPER }}>
+
+                {/* 헤더: 주소 + 유형 */}
+                <div className="mb-3">
+                  <div className="text-xs tracking-wide" style={{ color: MUTED }}>{p.type}</div>
+                  <div className="text-base font-medium" style={{ color: INK }}>{p.address}</div>
+                </div>
+
+                {/* 2. 기본정보 테이블 */}
+                <div className="rounded-xl overflow-hidden mb-4" style={{ border: '1px solid #E5DFCE' }}>
+                  {[
+                    ['소유형태', p.ownership, p.ownership === '갭투자'],
+                    ['동/호수', p.dong + ' ' + p.ho, false],
+                    ['면적', p.area + '㎡', false],
+                    ['취득일자', p.acquireDate, false],
+                    ['취득가액', fmtKRW(p.acquireAmount) + '원', false],
+                  ].map(([label, value, showToggle], idx) => (
+                    <div key={label} className="flex items-center justify-between px-3 py-2 text-xs"
+                      style={{ backgroundColor: idx % 2 === 0 ? PAPER : '#EDE7D8' }}>
+                      <span style={{ color: MUTED }}>{label}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="tabular-nums font-medium" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{value}</span>
+                        {showToggle && (
+                          <button
+                            onClick={() => setTenantOpen(v => ({ ...v, [p.id]: !v[p.id] }))}
+                            className="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: tenantOpen[p.id] ? INK : '#E5DFCE', color: tenantOpen[p.id] ? PAPER : '#5B5744' }}
+                          >
+                            임차인정보 {tenantOpen[p.id] ? '▲' : '▼'}
+                          </button>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 유첨: 갭투자 임차인정보 (토글) */}
+                {p.ownership === '갭투자' && tenantOpen[p.id] && (
+                  <div className="rounded-xl p-3 mb-4" style={{ backgroundColor: '#EDE7D8' }}>
+                    <div className="text-xs font-medium mb-2" style={{ color: INK }}>임차인정보 (계약 이력)</div>
+                    <div className="grid grid-cols-[auto,auto,auto,1fr] gap-x-2 gap-y-1.5 text-xs">
+                      <div style={{ color: MUTED }}>형태</div>
+                      <div style={{ color: MUTED }}>보증금</div>
+                      <div style={{ color: MUTED }}>월세</div>
+                      <div style={{ color: MUTED }}>임차인/비고</div>
+                      {(p.tenants || []).map((t, i) => (
+                        <React.Fragment key={i}>
+                          <div style={{ color: INK }}>{t.contractType}</div>
+                          <div className="tabular-nums" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(t.deposit)}</div>
+                          <div className="tabular-nums" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{t.rent ? fmtKRW(t.rent) : '-'}</div>
+                          <div className="truncate" style={{ color: '#5B5744' }}>{t.tenant}{t.note ? ' · ' + t.note : ''}</div>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. 자산가치 */}
+                {p.latest && (
+                  <>
+                    <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="rounded-lg p-2 text-center" style={{ backgroundColor: '#E5DFCE' }}>
+                        <div className="text-xs" style={{ color: MUTED }}>점검일</div>
+                        <div className="text-xs font-medium mt-0.5" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{p.latest.month}</div>
+                      </div>
+                      <div className="rounded-lg p-2 text-center" style={{ backgroundColor: '#E5DFCE' }}>
+                        <div className="text-xs" style={{ color: MUTED }}>시세</div>
+                        <div className="text-xs font-medium mt-0.5" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(p.latest.price)}원</div>
+                      </div>
+                      <div className="rounded-lg p-2 text-center" style={{ backgroundColor: '#E5DFCE' }}>
+                        <div className="text-xs" style={{ color: MUTED }}>공시가격</div>
+                        <div className="text-xs font-medium mt-0.5" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(p.latest.officialPrice)}원</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-baseline gap-2 mb-3">
+                      <span className="text-xs" style={{ color: MUTED }}>취득가 대비 수익률</span>
+                      <span className="text-sm font-medium tabular-nums" style={{ color: p.profitAmount >= 0 ? SAGE : RUST, fontFamily: 'ui-monospace, monospace' }}>
+                        {p.profitAmount >= 0 ? '+' : ''}{p.profitRate.toFixed(1)}% ({p.profitAmount >= 0 ? '+' : ''}{fmtKRW(p.profitAmount)}원)
+                      </span>
+                    </div>
+
+                    <ResponsiveContainer width="100%" height={160}>
+                      <LineChart data={p.trendData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#D8D2C0" vertical={false} />
+                        <XAxis dataKey="month" tick={{ fill: '#5B5744', fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fill: '#5B5744', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => fmtKRW(v)} />
+                        <Tooltip {...tooltipBase} formatter={(v, n) => [fmtKRW(v) + '원', n]} />
+                        <Legend wrapperStyle={{ fontSize: 11 }} />
+                        <Line type="linear" dataKey="시세" stroke={GOLD} strokeWidth={2} dot={{ r: 3 }} />
+                        <Line type="linear" dataKey="공시가격" stroke={SAGE} strokeWidth={2} dot={{ r: 3 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </>
+                )}
+
+                {/* 4. 각종세금 */}
+                {p.taxByYear.length > 0 && (
+                  <div className="mt-4">
+                    <div className="text-xs font-medium mb-2" style={{ color: INK }}>최근 세금 납부현황</div>
+                    <div className="grid grid-cols-3 gap-x-2 text-xs">
+                      <div style={{ color: MUTED }}>연도</div>
+                      <div className="text-right" style={{ color: MUTED }}>재산세</div>
+                      <div className="text-right" style={{ color: MUTED }}>종부세</div>
+                      {p.taxByYear.map((t) => (
+                        <React.Fragment key={t.year}>
+                          <div style={{ color: INK }}>{t.year}년</div>
+                          <div className="text-right tabular-nums" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(t.propertyTax)}원</div>
+                          <div className="text-right tabular-nums" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(t.comprehensiveTax)}원</div>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. 수리/유지비 */}
+                {(p.maintenance || []).length > 0 && (
+                  <div className="mt-4">
+                    <div className="text-xs font-medium mb-2" style={{ color: INK }}>수리/유지비</div>
+                    <div className="grid grid-cols-[auto,1fr,auto,auto] gap-x-2 gap-y-1.5 text-xs">
+                      <div style={{ color: MUTED }}>발생일</div>
+                      <div style={{ color: MUTED }}>교체항목</div>
+                      <div className="text-right" style={{ color: MUTED }}>비용</div>
+                      <div className="text-right" style={{ color: MUTED }}>임차인</div>
+                      {p.maintenance.map((m, i) => (
+                        <React.Fragment key={i}>
+                          <div style={{ color: '#5B5744', fontFamily: 'ui-monospace, monospace' }}>{m.date}</div>
+                          <div className="truncate" style={{ color: INK }}>{m.place} · {m.item}</div>
+                          <div className="text-right tabular-nums" style={{ color: INK, fontFamily: 'ui-monospace, monospace' }}>{fmtKRW(m.cost)}원</div>
+                          <div className="text-right truncate" style={{ color: '#5B5744' }}>{m.tenant}</div>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
